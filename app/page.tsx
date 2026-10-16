@@ -1,8 +1,10 @@
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
+import type { Exercise } from '@/lib/types'
 
 export const revalidate = 0 // Désactive le cache pour voir immédiatement les changements
 
 export default async function HomePage() {
+  const supabase = await createClient()
   // Récupération des exercices depuis Supabase
   const { data: exercises, error } = await supabase
     .from('exercises') // Remplace 'exercises' par le nom exact de ta table si différent
@@ -31,13 +33,13 @@ export default async function HomePage() {
 
       <ul className="grid gap-4 md:grid-cols-2">
         {exercises && exercises.length > 0 ? (
-          exercises.map((exercise: any) => (
+          exercises.map((exercise: Exercise) => (
             <li
               key={exercise.id}
               className="border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow"
             >
               <h2 className="text-xl font-semibold mb-1">
-                {exercise.name || exercise.title || 'Exercice sans nom'}
+                {exercise.name || 'Exercice sans nom'}
               </h2>
               {exercise.muscle_group && (
                 <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded font-medium">

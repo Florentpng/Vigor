@@ -1,15 +1,18 @@
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export const revalidate = 0
 
 export default async function AdminDashboardPage() {
-  const [{ count: exercisesCount }, { count: workoutsCount }, { count: usersCount }] =
+  const supabase = await createClient()
+  const [{ count: exercisesCount }, { count: workoutsCount }, { data: users }] =
     await Promise.all([
       supabase.from('exercises').select('*', { count: 'exact', head: true }),
       supabase.from('workouts').select('*', { count: 'exact', head: true }).is('user_id', null),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }), // ou table users selon ton schéma
+      // La RLS de profiles ne laisse voir que son propre profil : on passe par la fonction admin.
+      supabase.rpc('admin_list_users'),
     ])
+  const usersCount = users?.length ?? 0
 
   return (
     <div>
