@@ -1,0 +1,19 @@
+{
+  "name": "@vigor/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2"
+  },
+  "devDependencies": {
+    "@supabase/supabase-js": "^2.119.0",
+    "typescript": "^5"
+  }
+}
