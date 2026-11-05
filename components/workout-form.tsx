@@ -4,8 +4,8 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { MUSCLE_GROUPS } from '@/lib/constants'
 import { formatRestTime } from '@/lib/format'
-import type { Exercise } from '@/lib/types'
-import { createWorkout, updateWorkout } from './actions'
+import type { Exercise, WorkoutInput } from '@/lib/types'
+import type { ActionResult } from '@/lib/workout-input'
 
 type Item = {
   exercise_id: string
@@ -22,14 +22,26 @@ export type WorkoutFormInitial = {
 
 type Props = {
   exercises: Exercise[]
-  workoutId?: string
   initial?: WorkoutFormInitial
+  title: string
+  submitLabel: string
+  // Server Action qui enregistre la séance (création ou modification, admin ou utilisateur)
+  action: (input: WorkoutInput) => Promise<ActionResult>
+  // Où aller après l'enregistrement et en cas d'annulation
+  redirectTo: string
 }
 
 const inputClass =
   'w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none'
 
-export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
+export default function WorkoutForm({
+  exercises,
+  initial,
+  title,
+  submitLabel,
+  action,
+  redirectTo,
+}: Props) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
   const [errorMsg, setErrorMsg] = useState('')
@@ -79,7 +91,7 @@ export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
     e.preventDefault()
     setErrorMsg('')
 
-    const input = {
+    const input: WorkoutInput = {
       name,
       description,
       exercises: items.map((i) => ({
@@ -91,15 +103,13 @@ export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
     }
 
     startTransition(async () => {
-      const result = workoutId
-        ? await updateWorkout(workoutId, input)
-        : await createWorkout(input)
+      const result = await action(input)
 
       if ('error' in result) {
         setErrorMsg(result.error)
         return
       }
-      router.push('/admin/workouts')
+      router.push(redirectTo)
     })
   }
 
@@ -108,9 +118,7 @@ export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
       onSubmit={handleSubmit}
       className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border space-y-6"
     >
-      <h2 className="text-2xl font-bold text-gray-800">
-        {workoutId ? 'Modifier la séance' : 'Ajouter une séance'}
-      </h2>
+      <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
 
       {errorMsg && (
         <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{errorMsg}</div>
@@ -290,7 +298,7 @@ export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
       <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"
-          onClick={() => router.push('/admin/workouts')}
+          onClick={() => router.push(redirectTo)}
           className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer"
         >
           Annuler
@@ -300,7 +308,7 @@ export default function WorkoutForm({ exercises, workoutId, initial }: Props) {
           disabled={pending}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 cursor-pointer"
         >
-          {pending ? 'Enregistrement...' : workoutId ? 'Enregistrer' : 'Créer la séance'}
+          {pending ? 'Enregistrement...' : submitLabel}
         </button>
       </div>
     </form>

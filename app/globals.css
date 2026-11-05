@@ -1,8 +1,42 @@
 @import "tailwindcss";
 
+/*
+ * Mode clair (par défaut). Comme pour le mode sombre ci-dessous, on redéfinit les couleurs
+ * Tailwind déjà utilisées dans l'app : gris ardoise, accent bronze, vert émeraude.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  /* Fonds et bordures (gris) : fond de page et fonds en retrait */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f8fafc;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  /* Textes (gris) */
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  /* Accent : bronze */
+  --color-blue-50: #fdf3e7;
+  --color-blue-100: #fbe5cc;
+  --color-blue-400: #d98b4a;
+  --color-blue-500: #c26e28;
+  --color-blue-600: #b85c00;
+  --color-blue-700: #9a4d00;
+  --color-blue-800: #7a3f00;
+
+  /* Succès : émeraude */
+  --color-green-50: #ecfdf5;
+  --color-green-100: #d1fae5;
+  --color-green-200: #a7f3d0;
+  --color-green-500: #10b981;
+  --color-green-600: #059669;
+  --color-green-700: #047857;
 }
 
 @theme inline {
@@ -12,15 +46,120 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Mode sombre : activé par la classe "dark" sur <html> (voir components/theme-toggle.tsx).
+ * Plutôt que d'ajouter une variante sombre à chaque composant, on redéfinit ici les
+ * couleurs Tailwind déjà utilisées dans l'app :
+ *   - les gris deviennent la palette anthracite / bleu-nuit,
+ *   - le bleu (accent) devient l'orange d'énergie,
+ *   - le vert devient un émeraude, les teintes d'alerte sont adoucies.
+ */
+.dark {
+  color-scheme: dark;
+  --background: #0b0f19;
+  --foreground: #f8fafc;
+
+  /* Fonds et bordures (gris) */
+  --color-gray-50: #0b0f19;
+  --color-gray-100: #0b0f19;
+  --color-gray-200: #334155;
+  --color-gray-300: #475569;
+  /* Textes (gris) */
+  --color-gray-400: #64748b;
+  --color-gray-500: #8b9bb0;
+  --color-gray-600: #a9b6c9;
+  --color-gray-700: #cbd5e1;
+  --color-gray-800: #e2e8f0;
+  --color-gray-900: #f8fafc;
+
+  /* Accent : orange */
+  --color-blue-50: #3a2412;
+  --color-blue-100: #4a2c14;
+  --color-blue-400: #ff8a3d;
+  --color-blue-500: #ff8533;
+  --color-blue-600: #ff6b00;
+  --color-blue-700: #e05f00;
+  --color-blue-800: #ffb27a;
+
+  /* Succès : émeraude */
+  --color-green-50: #0b2a22;
+  --color-green-100: #0f3b2e;
+  --color-green-200: #14604a;
+  --color-green-500: #10b981;
+  --color-green-600: #059669;
+  --color-green-700: #047857;
+
+  /* Erreurs */
+  --color-red-50: #2a1015;
+  --color-red-100: #3b1219;
+  --color-red-200: #7f1d1d;
+  --color-red-400: #f87171;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+
+  /* Avertissements */
+  --color-amber-50: #2b2108;
+  --color-amber-200: #78581a;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+
+  /* Rôle admin */
+  --color-purple-100: #2e1f4d;
+  --color-purple-600: #a78bfa;
+  --color-purple-700: #c4b5fd;
+  --color-purple-800: #ddd6fe;
+
+  --color-orange-600: #fb923c;
+}
+
+/* Les cartes : « bg-white » ne peut pas passer par une variable, car « text-white » la partage. */
+.dark .bg-white {
+  background-color: #1e293b;
+}
+
+/* Survols : un fond plus clair que la carte, pas plus sombre */
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: #273449;
+}
+
+/* Textes verts : l'émeraude des boutons est trop sombre pour du texte sur fond sombre */
+.dark .text-green-600,
+.dark .text-green-700 {
+  color: #34d399;
+}
+
+/* Champs de formulaire */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+.dark input[type="file"] {
+  background-color: transparent;
+}
+.dark ::placeholder {
+  color: #64748b;
+}
+
+/* Bordures par défaut (Tailwind 4 utilise la couleur du texte) */
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: #e2e8f0;
+  }
+
+  .dark *,
+  .dark ::before,
+  .dark ::after {
+    border-color: #334155;
+  }
 }

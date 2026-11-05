@@ -16,16 +16,10 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   const { email, password } = readCredentials(formData)
   const supabase = await createClient()
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: 'Email ou mot de passe incorrect.' }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', data.user.id)
-    .maybeSingle()
-
-  redirect(profile?.is_admin ? '/admin' : '/')
+  redirect('/')
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {

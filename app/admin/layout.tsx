@@ -1,7 +1,15 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import NavLinks, { type NavLink } from '@/components/nav-links'
+import UserMenu from '@/components/user-menu'
 import { createClient } from '@/lib/supabase/server'
-import { logout } from '../(auth)/actions'
+
+const ADMIN_LINKS: NavLink[] = [
+  { href: '/admin/exercises', label: 'Exercices' },
+  { href: '/admin/workouts', label: 'Séances Modèles' },
+  { href: '/admin/users', label: 'Utilisateurs' },
+]
 
 export default async function AdminLayout({
   children,
@@ -23,35 +31,51 @@ export default async function AdminLayout({
   if (!profile?.is_admin) redirect('/')
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
-      <header className="bg-slate-900 text-white p-4 shadow-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/admin" className="hover:text-blue-400 transition-colors">
-            <h1 className="text-xl font-bold tracking-wide">⚙️ Vigor Admin</h1>
-          </Link>
-          <nav className="flex items-center gap-6 text-sm font-medium">
-            <Link href="/admin/exercises" className="hover:text-blue-400 transition-colors">
-              Exercices
-            </Link>
-            <Link href="/admin/workouts" className="hover:text-blue-400 transition-colors">
-              Séances Modèles
-            </Link>
-            <Link href="/admin/users" className="hover:text-blue-400 transition-colors">
-              Utilisateurs
-            </Link>
-            <form action={logout}>
-              <button
-                type="submit"
-                className="hover:text-red-400 transition-colors cursor-pointer"
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+      <header className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              aria-label="Retour à l'accueil"
+              title="Retour à l'accueil"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-700 hover:text-blue-600 transition-colors"
+            >
+              <svg
+                className="h-7 w-7"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                Déconnexion
-              </button>
-            </form>
-          </nav>
+                <path d="M12 5l-5 5 5 5" />
+              </svg>
+            </Link>
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 text-xl font-bold tracking-wide text-gray-900"
+            >
+              <Image src="/logo-mark.png" alt="" width={38} height={36} priority className="h-9 w-auto" />
+              Vigor Admin
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <NavLinks links={ADMIN_LINKS} className="hidden md:flex items-center" />
+            <UserMenu email={user.email ?? ''} isAdmin />
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">{children}</main>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-6">{children}</main>
+
+      <NavLinks
+        links={ADMIN_LINKS}
+        className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around py-1"
+      />
     </div>
   )
 }

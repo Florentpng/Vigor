@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Exercise } from '@/lib/types'
-import WorkoutForm from '../workout-form'
+import WorkoutForm from '@/components/workout-form'
+import { updateWorkout } from '../actions'
 
 export const revalidate = 0
 
@@ -43,7 +44,10 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
 
   return (
     <WorkoutForm
-      workoutId={id}
+      title="Modifier la séance"
+      submitLabel="Enregistrer"
+      action={updateWorkout.bind(null, id)}
+      redirectTo="/admin/workouts"
       exercises={(exercises ?? []) as Exercise[]}
       initial={{
         name,

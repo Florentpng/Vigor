@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Exercise } from '@/lib/types'
-import WorkoutForm from '../workout-form'
+import WorkoutForm from '@/components/workout-form'
+import { createWorkout } from '../actions'
 
 export const revalidate = 0
 
@@ -12,5 +13,13 @@ export default async function NewWorkoutPage() {
     .select('id, name, description, muscle_group, equipment, video_url')
     .order('name', { ascending: true })
 
-  return <WorkoutForm exercises={(data ?? []) as Exercise[]} />
+  return (
+    <WorkoutForm
+      exercises={(data ?? []) as Exercise[]}
+      title="Ajouter une séance"
+      submitLabel="Créer la séance"
+      action={createWorkout}
+      redirectTo="/admin/workouts"
+    />
+  )
 }

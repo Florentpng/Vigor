@@ -3,36 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { WorkoutInput } from '@/lib/types'
-
-export type ActionResult = { error: string } | { ok: true }
-
-function validate(input: WorkoutInput): string | null {
-  if (!input.name.trim()) return 'Le nom est obligatoire.'
-  if (input.exercises.length === 0) return 'Ajoute au moins un exercice.'
-
-  const invalid = input.exercises.some(
-    (e) =>
-      !e.exercise_id ||
-      !Number.isInteger(e.target_sets) ||
-      e.target_sets < 1 ||
-      !Number.isInteger(e.target_reps) ||
-      e.target_reps < 1 ||
-      !Number.isInteger(e.rest_time) ||
-      e.rest_time < 0
-  )
-  return invalid ? 'Séries, répétitions et repos doivent être des nombres valides.' : null
-}
-
-function toRows(workoutId: string, input: WorkoutInput) {
-  return input.exercises.map((e, index) => ({
-    workout_id: workoutId,
-    exercise_id: e.exercise_id,
-    order_index: index,
-    target_sets: e.target_sets,
-    target_reps: e.target_reps,
-    rest_time: e.rest_time,
-  }))
-}
+import { toWorkoutRows as toRows, validateWorkoutInput as validate } from '@/lib/workout-input'
+import type { ActionResult } from '@/lib/workout-input'
 
 export async function createWorkout(input: WorkoutInput): Promise<ActionResult> {
   const invalid = validate(input)
