@@ -1,6 +1,6 @@
 import type { WorkoutInput } from './types'
 
-export type ActionResult = { error: string } | { ok: true }
+export type { ActionResult } from './result'
 
 export function validateWorkoutInput(input: WorkoutInput): string | null {
   if (!input.name.trim()) return 'Le nom est obligatoire.'
