@@ -1,19 +1,22 @@
 import '../../global.css'
 
-import { DarkTheme, DefaultTheme, SplashScreen, Stack, ThemeProvider } from 'expo-router'
+import { SplashScreen, Stack, ThemeProvider } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect } from 'react'
 import { useColorScheme } from 'react-native'
 
 import { SessionProvider, useSession } from '@/lib/auth'
+import { applyStoredTheme, darkNavTheme, lightNavTheme } from '@/lib/theme'
 
 // Le splash reste affiché tant qu'on ne sait pas si l'utilisateur est connecté.
 SplashScreen.preventAutoHideAsync()
+applyStoredTheme()
 
 export default function RootLayout() {
+  // Suit le choix Système / Clair / Sombre du profil (appliqué via NativeWind)
   const colorScheme = useColorScheme()
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={colorScheme === 'dark' ? darkNavTheme : lightNavTheme}>
       <SessionProvider>
         <RootNavigator />
       </SessionProvider>
