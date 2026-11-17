@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import Image from 'next/image'
+import { Button } from '@/components/ui/button'
 
 type Props = {
   title: string
@@ -39,8 +40,10 @@ export default function BadgeCard({ title, description, imageSrc, unlocked, stat
         type="button"
         onClick={() => dialogRef.current?.showModal()}
         aria-label={`Voir le badge ${title} en grand`}
-        className={`flex w-full items-start gap-3 rounded-xl border p-4 text-left cursor-pointer transition-shadow hover:shadow-md ${
-          unlocked ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 opacity-60'
+        className={`glass flex w-full items-start gap-3 rounded-xl border p-4 text-left cursor-pointer transition-shadow ${
+          unlocked
+            ? 'border-blue-600 shadow-[0_0_16px_color-mix(in_srgb,var(--color-blue-600)_35%,transparent)] hover:shadow-[0_0_22px_color-mix(in_srgb,var(--color-blue-600)_50%,transparent)]'
+            : 'opacity-60 grayscale hover:opacity-80'
         }`}
       >
         {imageSrc ? (
@@ -49,13 +52,13 @@ export default function BadgeCard({ title, description, imageSrc, unlocked, stat
             alt=""
             width={96}
             height={96}
-            className={`h-16 w-16 shrink-0 object-contain ${unlocked ? '' : 'grayscale'}`}
+            className="h-16 w-16 shrink-0 object-contain"
           />
         ) : (
           <StarIcon unlocked={unlocked} size="sm" />
         )}
         <div>
-          <p className="font-semibold text-gray-900">{title}</p>
+          <p className="font-display text-xl font-bold uppercase leading-tight text-gray-900">{title}</p>
           <p className="text-sm text-gray-600">{description}</p>
           <p className="mt-1 text-xs text-gray-500">{statusLabel}</p>
         </div>
@@ -89,13 +92,9 @@ export default function BadgeCard({ title, description, imageSrc, unlocked, stat
             <p className="mt-3 text-xs font-medium text-gray-500">{statusLabel}</p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => dialogRef.current?.close()}
-            className="mt-1 px-5 py-2 border rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
-          >
+          <Button variant="secondary" onClick={() => dialogRef.current?.close()} className="mt-1 px-5">
             Fermer
-          </button>
+          </Button>
         </div>
       </dialog>
     </li>

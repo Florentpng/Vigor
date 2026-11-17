@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import logo from '../icon.png'
 import { redirect } from 'next/navigation'
 import NavLinks, { type NavLink } from '@/components/nav-links'
 import UserMenu from '@/components/user-menu'
@@ -31,7 +32,7 @@ export default async function AdminLayout({
   if (!profile?.is_admin) redirect('/')
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="app-shell min-h-screen bg-gray-50 flex flex-col font-sans">
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -58,7 +59,7 @@ export default async function AdminLayout({
               href="/admin"
               className="flex items-center gap-2 text-xl font-bold tracking-wide text-gray-900"
             >
-              <Image src="/logo-mark.png" alt="" width={38} height={36} priority className="h-9 w-auto" />
+              <Image src={logo} alt="" priority className="h-12 w-12" />
               Vigor Admin
             </Link>
           </div>

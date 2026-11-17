@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import { deleteMyWorkout } from '../actions'
 
 export default function DeleteMyWorkoutButton({ id, name }: { id: string; name: string }) {
@@ -22,12 +23,8 @@ export default function DeleteMyWorkoutButton({ id, name }: { id: string; name: 
   }
 
   return (
-    <button
-      onClick={handleDelete}
-      disabled={pending}
-      className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-sm font-medium disabled:opacity-50 cursor-pointer"
-    >
+    <Button variant="danger" onClick={handleDelete} disabled={pending}>
       {pending ? 'Suppression...' : 'Supprimer'}
-    </button>
+    </Button>
   )
 }

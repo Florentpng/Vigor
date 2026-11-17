@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import logo from '../icon.png'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavLinks from '@/components/nav-links'
@@ -20,16 +21,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .maybeSingle()
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    <div className="app-shell min-h-screen bg-gray-50 flex flex-col font-sans">
       <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold tracking-wide text-gray-900">
-            <Image src="/logo-mark.png" alt="" width={38} height={36} priority className="h-9 w-auto" />
+        {/* Logo à gauche, liens centrés, menu utilisateur à droite */}
+        <div className="max-w-6xl mx-auto px-4 h-14 grid grid-cols-[1fr_auto_1fr] items-center">
+          <Link
+            href="/"
+            className="justify-self-start flex items-center gap-2 font-display text-2xl font-extrabold uppercase tracking-wider text-gray-900"
+          >
+            <Image src={logo} alt="" priority className="h-12 w-12" />
             Vigor
           </Link>
 
-          <div className="flex items-center gap-3">
-            <NavLinks className="hidden md:flex items-center" />
+          <NavLinks className="hidden md:flex items-center gap-1" />
+
+          <div className="justify-self-end col-start-3">
             <UserMenu email={user.email ?? ''} isAdmin={Boolean(profile?.is_admin)} />
           </div>
         </div>

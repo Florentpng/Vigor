@@ -29,8 +29,11 @@ export default function NavLinks({
             key={href}
             href={href}
             aria-current={active ? 'page' : undefined}
-            className={`px-3 py-2 text-sm font-medium transition-colors ${
-              active ? 'text-blue-600' : 'text-gray-600 hover:text-blue-600'
+            // Sur ordinateur, le lien actif est souligné en bas de la barre (hauteur h-14 du header)
+            className={`inline-flex items-center px-3 py-2 md:h-14 md:py-0 text-sm font-medium border-b-2 border-transparent transition-colors ${
+              active
+                ? 'text-blue-600 md:border-blue-600'
+                : 'text-gray-600 hover:text-blue-600'
             }`}
           >
             {label}

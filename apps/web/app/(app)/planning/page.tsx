@@ -21,7 +21,7 @@ export default async function PlanningPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Planning</h1>
+        <h1 className="text-5xl font-extrabold leading-none text-gray-900">Planning</h1>
         <p className="mt-1 text-sm text-gray-600">
           Ta semaine type. Pour changer un jour, ouvre une séance depuis{' '}
           <Link href="/workouts" className="text-blue-600 hover:underline">
@@ -35,7 +35,7 @@ export default async function PlanningPage() {
         <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
-      <ul className="bg-white border rounded-xl shadow-sm divide-y overflow-hidden">
+      <ul className="space-y-3">
         {WEEKDAYS.map(({ value, label }) => {
           const entry = plan.get(value)
           const isToday = value === today
@@ -43,12 +43,12 @@ export default async function PlanningPage() {
           return (
             <li
               key={value}
-              className={`flex items-center justify-between gap-3 px-4 py-4 ${
-                isToday ? 'bg-blue-50' : ''
+              className={`glass flex items-center justify-between gap-3 rounded-xl border px-4 py-4 shadow-sm ${
+                isToday ? 'border-blue-600 shadow-[0_0_14px_color-mix(in_srgb,var(--color-blue-600)_30%,transparent)]' : ''
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className="w-24 font-medium text-gray-900">{label}</span>
+                <span className="w-28 font-display text-2xl font-bold uppercase text-gray-900">{label}</span>
                 {isToday && (
                   <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
                     Aujourd&apos;hui

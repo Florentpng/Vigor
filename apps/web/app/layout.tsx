@@ -4,7 +4,7 @@ import "./globals.css";
 
 // Police des titres : grasse et condensée
 const barlowCondensed = Barlow_Condensed({
-  variable: "--font-display",
+  variable: "--font-barlow",
   subsets: ["latin"],
   weight: ["600", "700", "800"],
 });

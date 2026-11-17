@@ -25,3 +25,34 @@ export function formatRestTime(seconds: number): string {
   const rest = seconds % 60
   return rest === 0 ? `${minutes} min` : `${minutes} min ${rest} s`
 }
+
+// "Push Day - Débutant" -> { title: "Push Day", level: "Débutant" }.
+// La difficulté n'est extraite que pour les séances Vigor (sans propriétaire) : le nom d'une séance perso reste tel quel.
+const LEVEL_SUFFIX = /^(.*?)\s*[-–—]\s*(Débutant|Intermédiaire|Avancé)\s*$/i
+
+export function parseWorkoutTitle(
+  name: string,
+  userId: string | null
+): { title: string; level: string | null } {
+  if (userId !== null) return { title: name, level: null }
+
+  const match = LEVEL_SUFFIX.exec(name)
+  if (!match || !match[1]) return { title: name, level: null }
+  return { title: match[1], level: match[2] }
+}
+
+// Temps d'effort estimé par répétition (secondes)
+const SECONDS_PER_REP = 4
+
+// Durée estimée d'une séance : effort de chaque série + repos entre les séries
+// (comme dans le déroulé de la séance, il n'y a pas de repos après la toute dernière série).
+export function estimateWorkoutSeconds(
+  exercises: { target_sets: number; target_reps: number; rest_time: number }[]
+): number {
+  const total = exercises.reduce(
+    (sum, e) => sum + e.target_sets * (e.target_reps * SECONDS_PER_REP + e.rest_time),
+    0
+  )
+  const last = exercises[exercises.length - 1]
+  return last ? total - last.rest_time : 0
+}

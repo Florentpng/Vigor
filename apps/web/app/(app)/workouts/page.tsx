@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { ButtonLink } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { DumbbellIcon } from '@/components/ui/icons'
+import { LevelBadge } from '@/components/ui/level-badge'
+import { Pill } from '@/components/ui/pill'
 import { WEEKDAYS } from '@vigor/shared/constants'
+import { parseWorkoutTitle } from '@vigor/shared/format'
 import { daysByWorkout, getWeeklyPlan, getWorkoutCards, type WorkoutCard } from '@vigor/shared/queries'
 
 export const revalidate = 0
@@ -12,42 +18,42 @@ function WorkoutList({ workouts, days }: { workouts: WorkoutCard[]; days: Map<st
         const { muscles } = workout
         const plannedDays = days.get(workout.id) ?? []
 
+        const { title, level } = parseWorkoutTitle(workout.name, workout.user_id)
+
         return (
           <li key={workout.id}>
-            <Link
-              href={`/workouts/${workout.id}`}
-              className="block h-full bg-white border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <h3 className="font-semibold text-gray-900">{workout.name}</h3>
-              {workout.description && (
-                <p className="mt-1 text-sm text-gray-600">{workout.description}</p>
-              )}
-
-              <p className="mt-3 text-sm text-gray-500">
-                {workout.exercise_count} exercice
-                {workout.exercise_count > 1 ? 's' : ''}
-              </p>
-
-              {muscles.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {muscles.map((muscle) => (
-                    <span
-                      key={muscle}
-                      className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium"
-                    >
-                      {muscle}
-                    </span>
-                  ))}
+            <Link href={`/workouts/${workout.id}`} className="block h-full">
+              <Card interactive className="h-full hover:border-blue-600/60">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <h3 className="text-2xl font-extrabold uppercase leading-tight text-gray-900">{title}</h3>
+                  {level && <LevelBadge size="sm">{level}</LevelBadge>}
                 </div>
-              )}
+                {workout.description && (
+                  <p className="mt-1 text-sm text-gray-600">{workout.description}</p>
+                )}
 
-              {plannedDays.length > 0 && (
-                <p className="mt-3 text-xs font-medium text-purple-700">
-                  {plannedDays
-                    .map((day) => WEEKDAYS.find((w) => w.value === day)?.label)
-                    .join(', ')}
+                <p className="mt-3 flex items-center gap-1.5 text-sm text-gray-500">
+                  <DumbbellIcon className="h-4 w-4" />
+                  {workout.exercise_count} exercice
+                  {workout.exercise_count > 1 ? 's' : ''}
                 </p>
-              )}
+
+                {muscles.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {muscles.map((muscle) => (
+                      <Pill key={muscle}>{muscle}</Pill>
+                    ))}
+                  </div>
+                )}
+
+                {plannedDays.length > 0 && (
+                  <p className="mt-3 text-xs font-medium text-purple-700">
+                    {plannedDays
+                      .map((day) => WEEKDAYS.find((w) => w.value === day)?.label)
+                      .join(', ')}
+                  </p>
+                )}
+              </Card>
             </Link>
           </li>
         )
@@ -86,13 +92,8 @@ export default async function WorkoutsPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">Séances</h1>
-        <Link
-          href="/workouts/new"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
-        >
-          + Créer une séance
-        </Link>
+        <h1 className="text-5xl font-extrabold leading-none text-gray-900">Séances</h1>
+        <ButtonLink href="/workouts/new">+ Créer une séance</ButtonLink>
       </div>
 
       {error && (

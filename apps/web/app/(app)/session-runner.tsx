@@ -4,7 +4,26 @@ import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } fro
 import Image from 'next/image'
 import Link from 'next/link'
 import { badgeImageSrc } from '@/lib/badges'
-import { formatDuration, formatRestTime } from '@vigor/shared/format'
+import { Button } from '@/components/ui/button'
+import {
+  CheckIcon,
+  DumbbellIcon,
+  FlameIcon,
+  HourglassIcon,
+  TimerIcon,
+} from '@/components/ui/icons'
+import { Input, Label } from '@/components/ui/input'
+import { LevelBadge } from '@/components/ui/level-badge'
+import { Pill } from '@/components/ui/pill'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import { RestLabel, SetsPill } from '@/components/ui/sets-pill'
+import { computeCalories } from '@vigor/shared/calories'
+import {
+  estimateWorkoutSeconds,
+  formatDuration,
+  formatRestTime,
+  parseWorkoutTitle,
+} from '@vigor/shared/format'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
 import { saveWorkoutLog } from './actions'
 
@@ -100,6 +119,19 @@ function ExerciseMedia({ exercise }: { exercise: SessionExercise }) {
       className="max-h-64 rounded-lg border"
     />
   )
+}
+
+// Petite vignette du média de l'exercice (rien si l'exercice n'en a pas)
+function ExerciseThumb({ exercise }: { exercise: SessionExercise }) {
+  if (!exercise.video_url) return null
+  const className = 'h-12 w-12 shrink-0 rounded-lg border object-cover'
+
+  if (exercise.video_url.toLowerCase().endsWith('.gif')) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={exercise.video_url} alt="" className={className} />
+  }
+
+  return <video src={exercise.video_url} muted playsInline preload="metadata" className={className} />
 }
 
 type Props = {
@@ -222,16 +254,23 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
 
     return (
       <div className="bg-white border rounded-xl p-6 shadow-sm text-center space-y-4">
-        <p className="text-sm font-medium text-green-600">
+        <p className="flex items-center justify-center gap-1.5 text-sm font-medium text-green-600">
+          <CheckIcon className="h-4 w-4" />
           {session.logged ? 'Séance enregistrée' : 'Séance terminée'}
         </p>
-        <h1 className="text-2xl font-bold text-gray-900">{workout.name}</h1>
-        <p className="text-4xl font-bold tabular-nums text-gray-900">{formatDuration(durationMs)}</p>
+        <h1 className="text-3xl font-extrabold text-gray-900">{workout.name}</h1>
+        <p className="flex items-center justify-center gap-2 font-display text-6xl font-bold tabular-nums text-gray-900">
+          <TimerIcon className="h-9 w-9 text-blue-600" />
+          {formatDuration(durationMs)}
+        </p>
 
         {session.logged ? (
           <>
-            <p className="text-gray-700">
-              <span className="text-2xl font-bold text-orange-600">{session.logged.calories}</span>{' '}
+            <p className="flex items-center justify-center gap-2 text-gray-700">
+              <FlameIcon className="h-6 w-6 text-orange-600" />
+              <span className="font-display text-3xl font-bold text-orange-600">
+                {session.logged.calories}
+              </span>
               kcal brûlées
             </p>
 
@@ -270,21 +309,16 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
                 })}
               </div>
             )}
-            <button
-              onClick={() => writeSession(null)}
-              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium cursor-pointer"
-            >
+            <Button onClick={() => writeSession(null)} className="px-5 py-2.5">
               Fermer
-            </button>
+            </Button>
           </>
         ) : (
           <>
             {weightKg === null && (
               <div className="text-left">
-                <label htmlFor="weight" className="block text-sm font-medium text-gray-700 mb-1">
-                  Ton poids (kg), pour calculer les calories
-                </label>
-                <input
+                <Label htmlFor="weight">Ton poids (kg), pour calculer les calories</Label>
+                <Input
                   id="weight"
                   type="number"
                   inputMode="decimal"
@@ -293,7 +327,6 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
                   step="1"
                   value={weightInput}
                   onChange={(e) => setWeightInput(e.target.value)}
-                  className="w-full border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   placeholder="Ex : 75"
                 />
                 <p className="mt-1 text-xs text-gray-500">Il sera retenu dans ton profil.</p>
@@ -305,13 +338,14 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             )}
 
             <div className="flex flex-col gap-2">
-              <button
+              <Button
+                variant="success"
+                size="lg"
                 onClick={save}
                 disabled={saving || (weightKg === null && !weightInput)}
-                className="px-5 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               >
                 {saving ? 'Enregistrement...' : 'Enregistrer la séance'}
-              </button>
+              </Button>
               <button
                 onClick={() => {
                   if (confirm('Fermer sans enregistrer ? Cette séance sera perdue.')) writeSession(null)
@@ -343,7 +377,8 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               Exercice {index + 1} sur {total}
             </p>
           </div>
-          <p className="text-2xl font-bold tabular-nums text-gray-900">
+          <p className="flex items-center gap-2 font-display text-4xl font-bold tabular-nums text-gray-900">
+            <TimerIcon className="h-6 w-6 text-blue-600" />
             {formatDuration(now - session.startedAt)}
           </p>
         </div>
@@ -390,24 +425,22 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               restDone ? 'bg-green-50 border-green-200' : 'bg-white'
             }`}
           >
-            <p className={`text-sm font-medium ${restDone ? 'text-green-700' : 'text-gray-500'}`}>
+            <p
+              className={`flex items-center justify-center gap-1.5 text-sm font-medium ${
+                restDone ? 'text-green-700' : 'text-gray-500'
+              }`}
+            >
+              {restDone ? <CheckIcon className="h-4 w-4" /> : <HourglassIcon className="h-4 w-4" />}
               {restDone ? 'Repos terminé' : 'Repos'}
             </p>
             <p
-              className={`text-6xl font-bold tabular-nums ${
+              className={`font-display text-8xl font-bold tabular-nums ${
                 restDone ? 'text-green-600' : 'text-gray-900'
               }`}
             >
               {formatDuration(seconds * 1000)}
             </p>
-            <div className="h-1.5 rounded-full bg-gray-200 overflow-hidden" aria-hidden="true">
-              <div
-                className={`h-full transition-[width] duration-500 ${
-                  restDone ? 'bg-green-500' : 'bg-blue-600'
-                }`}
-                style={{ width: `${progress}%` }}
-              />
-            </div>
+            <ProgressBar value={progress} tone={restDone ? 'success' : 'accent'} />
             <div className="text-sm text-gray-600">
               À suivre :{' '}
               <span className="font-semibold text-gray-900">{exercise.name}</span>
@@ -417,14 +450,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             </div>
           </div>
 
-          <button
-            onClick={endRest}
-            className={`w-full px-4 py-4 rounded-xl text-base font-semibold text-white cursor-pointer ${
-              restDone ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
-            }`}
-          >
+          <Button size="lg" variant={restDone ? 'success' : 'primary'} onClick={endRest}>
             {restDone ? 'C’est reparti !' : 'Passer le repos'}
-          </button>
+          </Button>
 
           {abandon}
         </div>
@@ -438,7 +466,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
 
         <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{exercise.name}</h1>
+            <h1 className="text-3xl font-extrabold text-gray-900">{exercise.name}</h1>
             <p className="mt-1 text-sm text-gray-500">
               {exercise.muscle_group} · {exercise.equipment}
             </p>
@@ -446,18 +474,18 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
 
           <div className="grid grid-cols-3 gap-3 text-center">
             <div className="bg-blue-50 rounded-lg py-3">
-              <p className="text-3xl font-bold text-blue-700">
+              <p className="font-display text-4xl font-bold text-blue-700">
                 {setNumber}
-                <span className="text-lg font-medium text-blue-400">/{exercise.target_sets}</span>
+                <span className="text-xl font-semibold text-blue-400">/{exercise.target_sets}</span>
               </p>
               <p className="text-xs text-blue-600">série</p>
             </div>
             <div className="bg-gray-50 rounded-lg py-3">
-              <p className="text-3xl font-bold text-gray-900">{exercise.target_reps}</p>
+              <p className="font-display text-4xl font-bold text-gray-900">{exercise.target_reps}</p>
               <p className="text-xs text-gray-500">répétitions</p>
             </div>
             <div className="bg-gray-50 rounded-lg py-3">
-              <p className="text-xl font-bold leading-[2.25rem] text-gray-900">
+              <p className="font-display text-3xl font-bold leading-[2.5rem] text-gray-900">
                 {formatRestTime(exercise.rest_time)}
               </p>
               <p className="text-xs text-gray-500">repos</p>
@@ -469,14 +497,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           <ExerciseMedia exercise={exercise} />
         </div>
 
-        <button
-          onClick={completeSet}
-          className={`w-full px-4 py-4 rounded-xl text-base font-semibold text-white cursor-pointer ${
-            isFinalSet ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'
-          }`}
-        >
+        <Button size="lg" variant={isFinalSet ? 'success' : 'primary'} onClick={completeSet}>
           {isFinalSet ? 'Dernière série terminée · Finir la séance' : 'Série terminée'}
-        </button>
+        </Button>
 
         <div className="flex justify-between text-sm">
           <button
@@ -501,22 +524,62 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   }
 
   // --- Aperçu avant de commencer ---
+  const { title, level } = parseWorkoutTitle(workout.name, workout.user_id)
+  const estimatedSeconds = estimateWorkoutSeconds(workout.exercises)
+  const muscles = [...new Set(workout.exercises.map((e) => e.muscle_group).filter(Boolean))]
+
   return (
     <div className="space-y-5">
       <div>
         <p className="text-sm font-medium text-blue-600">{heading}</p>
-        <h1 className="mt-1 text-2xl font-bold text-gray-900">{workout.name}</h1>
-        {workout.description && <p className="mt-1 text-gray-600">{workout.description}</p>}
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h1 className="text-6xl font-extrabold leading-none text-gray-900">{title}</h1>
+          {level && (
+            <LevelBadge>{level}</LevelBadge>
+          )}
+        </div>
+
+        {total > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+            <span className="inline-flex items-center gap-1.5">
+              <TimerIcon className="h-5 w-5 text-blue-600" />~
+              {Math.max(1, Math.round(estimatedSeconds / 60))} min
+            </span>
+            {weightKg !== null && (
+              <span className="inline-flex items-center gap-1.5">
+                <FlameIcon className="h-[26px] w-[26px] text-orange-600" />~
+                {computeCalories(weightKg, estimatedSeconds)} kcal
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <DumbbellIcon className="h-5 w-5 text-gray-500" />
+              {total} exercice{total > 1 ? 's' : ''}
+            </span>
+            {muscles.map((muscle) => (
+              <Pill key={muscle}>{muscle}</Pill>
+            ))}
+          </div>
+        )}
+
+        {workout.description && <p className="mt-3 text-gray-600">{workout.description}</p>}
       </div>
 
       {total === 0 ? (
         <p className="text-sm text-gray-500">Cette séance ne contient aucun exercice.</p>
       ) : (
-        <ol className="bg-white border rounded-xl shadow-sm divide-y overflow-hidden">
+        <ol className="space-y-3">
           {workout.exercises.map((exercise, i) => (
-            <li key={i}>
+            <li key={i} className="glass border rounded-xl shadow-sm overflow-hidden">
               <details className="group">
-                <summary className="flex items-center gap-3 px-4 py-3 text-sm cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
+                <summary className="flex items-center gap-3 px-4 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
+                  <ExerciseThumb exercise={exercise} />
+                  <span className="flex-1 text-base font-semibold text-gray-900">
+                    {String(i + 1).padStart(2, '0')}. {exercise.name}
+                  </span>
+                  <span className="shrink-0 flex flex-col items-end gap-1">
+                    <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
+                    <RestLabel seconds={exercise.rest_time} />
+                  </span>
                   <svg
                     className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
                     viewBox="0 0 20 20"
@@ -529,15 +592,6 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="flex-1 font-medium text-gray-900">
-                    {i + 1}. {exercise.name}
-                  </span>
-                  <span className="shrink-0 text-right text-gray-600">
-                    {exercise.target_sets} × {exercise.target_reps}
-                    <span className="block text-xs text-gray-500">
-                      Repos {formatRestTime(exercise.rest_time)}
-                    </span>
-                  </span>
                 </summary>
 
                 <div className="bg-gray-50 border-t px-4 py-4 space-y-3 text-sm">
@@ -557,13 +611,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         </ol>
       )}
 
-      <button
-        onClick={start}
-        disabled={total === 0}
-        className="w-full px-5 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-base font-semibold disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-      >
+      <Button size="lg" onClick={start} disabled={total === 0}>
         Commencer la séance
-      </button>
+      </Button>
 
       <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm">
         <Link href="/workouts" className="text-blue-600 hover:underline">

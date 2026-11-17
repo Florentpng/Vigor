@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { WEEKDAYS } from '@vigor/shared/constants'
 import { setWorkoutDays } from './actions'
 
@@ -40,8 +42,8 @@ export default function DaysPicker({ workoutId, initialDays, takenBy }: Props) {
   }
 
   return (
-    <section className="bg-white border rounded-xl p-4 shadow-sm">
-      <h2 className="font-semibold text-gray-900">Jours de la semaine</h2>
+    <Card>
+      <h2 className="text-2xl font-bold text-gray-900">Jours de la semaine</h2>
       <p className="mt-1 text-sm text-gray-600">
         Cette séance sera proposée en page d&apos;accueil les jours cochés.
       </p>
@@ -80,20 +82,15 @@ export default function DaysPicker({ workoutId, initialDays, takenBy }: Props) {
       )}
 
       <div className="mt-4 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={!dirty || pending}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-        >
+        <Button onClick={save} disabled={!dirty || pending}>
           {pending ? 'Enregistrement...' : 'Enregistrer les jours'}
-        </button>
+        </Button>
         {message && (
           <span className={`text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
             {message.text}
           </span>
         )}
       </div>
-    </section>
+    </Card>
   )
 }

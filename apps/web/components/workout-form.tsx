@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 import { MUSCLE_GROUPS } from '@vigor/shared/constants'
 import { formatRestTime } from '@vigor/shared/format'
 import type { Exercise, WorkoutInput } from '@vigor/shared/types'
@@ -116,9 +117,9 @@ export default function WorkoutForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-4xl mx-auto bg-white p-8 rounded-xl shadow-sm border space-y-6"
+      className="max-w-4xl mx-auto glass p-8 rounded-xl shadow-sm border space-y-6"
     >
-      <h2 className="text-2xl font-bold text-gray-800">{title}</h2>
+      <h2 className="text-4xl font-extrabold text-gray-900">{title}</h2>
 
       {errorMsg && (
         <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{errorMsg}</div>
@@ -187,14 +188,9 @@ export default function WorkoutForm({
             ))}
           </select>
 
-          <button
-            type="button"
-            onClick={addExercise}
-            disabled={!selected}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-700 text-white rounded-lg text-sm font-medium disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-          >
+          <Button onClick={addExercise} disabled={!selected}>
             Ajouter
-          </button>
+          </Button>
         </div>
 
         {items.length === 0 ? (
@@ -296,20 +292,12 @@ export default function WorkoutForm({
       </div>
 
       <div className="flex justify-end gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => router.push(redirectTo)}
-          className="px-4 py-2 border rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 cursor-pointer"
-        >
+        <Button variant="secondary" onClick={() => router.push(redirectTo)}>
           Annuler
-        </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 cursor-pointer"
-        >
+        </Button>
+        <Button type="submit" disabled={pending}>
           {pending ? 'Enregistrement...' : submitLabel}
-        </button>
+        </Button>
       </div>
     </form>
   )

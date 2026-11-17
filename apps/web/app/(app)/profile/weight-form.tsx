@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input, Label } from '@/components/ui/input'
 import { updateWeight } from './actions'
 
 export default function WeightForm({ initialWeight }: { initialWeight: number | null }) {
@@ -24,11 +26,9 @@ export default function WeightForm({ initialWeight }: { initialWeight: number | 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <label htmlFor="weight" className="block text-sm font-medium text-gray-700">
-        Poids (kg)
-      </label>
+      <Label htmlFor="weight">Poids (kg)</Label>
       <div className="flex gap-3">
-        <input
+        <Input
           id="weight"
           type="number"
           inputMode="decimal"
@@ -38,15 +38,11 @@ export default function WeightForm({ initialWeight }: { initialWeight: number | 
           required
           value={value}
           onChange={(e) => setValue(e.target.value)}
-          className="w-32 border rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+          className="w-32"
         />
-        <button
-          type="submit"
-          disabled={pending}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50 cursor-pointer"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? 'Enregistrement...' : 'Enregistrer'}
-        </button>
+        </Button>
       </div>
       <p className="text-xs text-gray-500">Sert au calcul des calories brûlées pendant tes séances.</p>
       {message && (

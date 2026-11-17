@@ -186,6 +186,31 @@ export async function getHistory(
   }
 }
 
+export type HistoryTotals = { sessions: number; minutes: number; calories: number }
+
+// Totaux de toutes les séances effectuées (getHistory, lui, ne renvoie que les dernières).
+// Supabase plafonne une réponse à 1000 lignes par défaut.
+export async function getHistoryTotals(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<Query<HistoryTotals>> {
+  const { data, error } = await supabase
+    .from('workout_logs')
+    .select('duration_minutes, calories_burned')
+    .eq('user_id', userId)
+
+  const rows = (data ?? []) as { duration_minutes: number; calories_burned: number }[]
+
+  return {
+    data: {
+      sessions: rows.length,
+      minutes: rows.reduce((sum, row) => sum + Number(row.duration_minutes), 0),
+      calories: Math.round(rows.reduce((sum, row) => sum + Number(row.calories_burned), 0)),
+    },
+    error: error?.message ?? null,
+  }
+}
+
 export type BadgeStatus = {
   id: string
   code: string

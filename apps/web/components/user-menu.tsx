@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import ThemeToggle from '@/components/theme-toggle'
+import userMark from '../public/user-mark.png'
 import { logout } from '@/app/(auth)/actions'
 
 export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: boolean }) {
@@ -42,7 +43,7 @@ export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: b
         aria-label="Menu utilisateur"
         className="flex h-11 w-11 items-center justify-center rounded-full transition duration-150 hover:scale-110 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer"
       >
-        <Image src="/user-mark.png" alt="" width={96} height={96} className="h-full w-full scale-110 object-contain" />
+        <Image src={userMark} alt="" className="h-full w-full scale-110 object-contain" />
       </button>
 
       {open && (
