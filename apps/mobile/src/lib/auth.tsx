@@ -17,6 +17,11 @@ export function useSession() {
   return value
 }
 
+// Id de l'utilisateur connecté (les écrans de (app) ne s'affichent que connecté)
+export function useUserId(): string {
+  return useSession().session?.user.id ?? ''
+}
+
 export function SessionProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)

@@ -1,28 +1,15 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { WEEKDAYS } from '@vigor/shared/constants'
+import { daysByWorkout, getWeeklyPlan, getWorkoutCards, type WorkoutCard } from '@vigor/shared/queries'
 
 export const revalidate = 0
-
-type WorkoutCard = {
-  id: string
-  name: string
-  description: string | null
-  user_id: string | null
-  workout_exercises: { exercises: { muscle_group: string } | null }[]
-}
 
 function WorkoutList({ workouts, days }: { workouts: WorkoutCard[]; days: Map<string, number[]> }) {
   return (
     <ul className="grid gap-4 sm:grid-cols-2">
       {workouts.map((workout) => {
-        const muscles = [
-          ...new Set(
-            workout.workout_exercises
-              .map((item) => item.exercises?.muscle_group)
-              .filter((m): m is string => Boolean(m))
-          ),
-        ]
+        const { muscles } = workout
         const plannedDays = days.get(workout.id) ?? []
 
         return (
@@ -37,8 +24,8 @@ function WorkoutList({ workouts, days }: { workouts: WorkoutCard[]; days: Map<st
               )}
 
               <p className="mt-3 text-sm text-gray-500">
-                {workout.workout_exercises.length} exercice
-                {workout.workout_exercises.length > 1 ? 's' : ''}
+                {workout.exercise_count} exercice
+                {workout.exercise_count > 1 ? 's' : ''}
               </p>
 
               {muscles.length > 0 && (
@@ -87,22 +74,14 @@ export default async function WorkoutsPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data, error }, { data: plan }] = await Promise.all([
-    supabase
-      .from('workouts')
-      .select('id, name, description, user_id, workout_exercises(exercises(muscle_group))')
-      .order('created_at', { ascending: true }),
-    supabase.from('weekly_plan').select('weekday, workout_id').eq('user_id', user?.id ?? ''),
+  const [{ data: workouts, error }, { data: plan }] = await Promise.all([
+    getWorkoutCards(supabase),
+    getWeeklyPlan(supabase, user?.id ?? ''),
   ])
 
-  const workouts = (data ?? []) as unknown as WorkoutCard[]
   const templates = workouts.filter((w) => w.user_id === null)
   const mine = workouts.filter((w) => w.user_id !== null)
-
-  const days = new Map<string, number[]>()
-  for (const row of (plan ?? []) as { weekday: number; workout_id: string }[]) {
-    days.set(row.workout_id, [...(days.get(row.workout_id) ?? []), row.weekday].sort())
-  }
+  const days = daysByWorkout(plan)
 
   return (
     <div className="space-y-6">
@@ -117,7 +96,7 @@ export default async function WorkoutsPage({
       </div>
 
       {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error.message}</div>
+        <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
       <nav className="flex border-b" aria-label="Type de séances">

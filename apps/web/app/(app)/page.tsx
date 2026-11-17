@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { WEEKDAYS } from '@vigor/shared/constants'
 import { getTodayWeekday } from '@vigor/shared/format'
+import { getPlannedWorkoutId, getProfile, getWorkoutCards } from '@vigor/shared/queries'
 import { getSessionWorkout } from '@vigor/shared/workouts'
 import SessionRunner from './session-runner'
 
@@ -22,30 +23,18 @@ export default async function HomePage({
   const today = getTodayWeekday()
   const todayLabel = WEEKDAYS.find((d) => d.value === today)?.label ?? ''
 
-  // Séance choisie à la main pour aujourd'hui, sinon celle du planning
-  let workoutId = chosenId ?? null
-  if (!workoutId) {
-    const { data: plan } = await supabase
-      .from('weekly_plan')
-      .select('workout_id')
-      .eq('user_id', user?.id ?? '')
-      .eq('weekday', today)
-      .maybeSingle()
-    workoutId = plan?.workout_id ?? null
-  }
+  const userId = user?.id ?? ''
 
+  // Séance choisie à la main pour aujourd'hui, sinon celle du planning
+  const workoutId = chosenId ?? (await getPlannedWorkoutId(supabase, userId, today))
   const workout = workoutId ? await getSessionWorkout(supabase, workoutId) : null
 
   if (workout) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('weight_kg')
-      .eq('id', user?.id ?? '')
-      .maybeSingle()
+    const profile = await getProfile(supabase, userId)
 
     return (
       <SessionRunner
-        weightKg={profile?.weight_kg ?? null}
+        weightKg={profile.weight_kg}
         workout={workout}
         heading={chosenId ? `Séance choisie pour ${todayLabel.toLowerCase()}` : `${todayLabel} · séance du jour`}
         showPlannedLink={Boolean(chosenId)}
@@ -54,10 +43,7 @@ export default async function HomePage({
   }
 
   // Aucune séance prévue (jour de repos ou planning vide) : liste des séances
-  const { data: workouts } = await supabase
-    .from('workouts')
-    .select('id, name, description')
-    .order('created_at', { ascending: true })
+  const { data: workouts } = await getWorkoutCards(supabase)
 
   return (
     <div className="space-y-5">
@@ -73,9 +59,9 @@ export default async function HomePage({
         </p>
       </div>
 
-      {(workouts ?? []).length > 0 && (
+      {workouts.length > 0 && (
         <ul className="space-y-3">
-          {(workouts ?? []).map((item) => (
+          {workouts.map((item) => (
             <li key={item.id}>
               <Link
                 href={`/?workout=${item.id}`}

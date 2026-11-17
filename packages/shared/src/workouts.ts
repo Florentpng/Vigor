@@ -5,6 +5,7 @@ type Row = {
   id: string
   name: string
   description: string | null
+  user_id: string | null
   workout_exercises: {
     order_index: number
     target_sets: number
@@ -28,7 +29,7 @@ export async function getSessionWorkout(
   const { data } = await supabase
     .from('workouts')
     .select(
-      'id, name, description, workout_exercises(order_index, target_sets, target_reps, rest_time, exercises(name, description, muscle_group, equipment, video_url))'
+      'id, name, description, user_id, workout_exercises(order_index, target_sets, target_reps, rest_time, exercises(name, description, muscle_group, equipment, video_url))'
     )
     .eq('id', id)
     .maybeSingle()
@@ -40,6 +41,7 @@ export async function getSessionWorkout(
     id: row.id,
     name: row.name,
     description: row.description,
+    user_id: row.user_id,
     exercises: [...row.workout_exercises]
       .sort((a, b) => a.order_index - b.order_index)
       .map((item) => ({

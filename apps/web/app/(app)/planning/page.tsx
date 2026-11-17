@@ -2,14 +2,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { WEEKDAYS } from '@vigor/shared/constants'
 import { getTodayWeekday } from '@vigor/shared/format'
+import { getWeeklyPlan } from '@vigor/shared/queries'
 
 export const revalidate = 0
-
-type PlanRow = {
-  weekday: number
-  workout_id: string
-  workouts: { name: string; workout_exercises: { count: number }[] } | null
-}
 
 export default async function PlanningPage() {
   const supabase = await createClient()
@@ -18,12 +13,9 @@ export default async function PlanningPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data, error } = await supabase
-    .from('weekly_plan')
-    .select('weekday, workout_id, workouts(name, workout_exercises(count))')
-    .eq('user_id', user?.id ?? '')
+  const { data, error } = await getWeeklyPlan(supabase, user?.id ?? '')
 
-  const plan = new Map(((data ?? []) as unknown as PlanRow[]).map((row) => [row.weekday, row]))
+  const plan = new Map(data.map((row) => [row.weekday, row]))
   const today = getTodayWeekday()
 
   return (
@@ -40,7 +32,7 @@ export default async function PlanningPage() {
       </div>
 
       {error && (
-        <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error.message}</div>
+        <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
       <ul className="bg-white border rounded-xl shadow-sm divide-y overflow-hidden">
@@ -64,14 +56,14 @@ export default async function PlanningPage() {
                 )}
               </div>
 
-              {entry?.workouts ? (
+              {entry?.workout_name ? (
                 <Link
                   href={`/workouts/${entry.workout_id}`}
                   className="text-right text-sm font-medium text-blue-600 hover:underline"
                 >
-                  {entry.workouts.name}
+                  {entry.workout_name}
                   <span className="block text-xs font-normal text-gray-500">
-                    {entry.workouts.workout_exercises[0]?.count ?? 0} exercices
+                    {entry.exercise_count} exercices
                   </span>
                 </Link>
               ) : (
