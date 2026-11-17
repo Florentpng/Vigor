@@ -151,6 +151,19 @@ body {
 
 /* Bordures par défaut (Tailwind 4 utilise la couleur du texte) */
 @layer base {
+  /* Titres : police condensée, le h1 en majuscules */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), Arial, Helvetica, sans-serif;
+    letter-spacing: 0.01em;
+  }
+
+  h1 {
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
   *,
   ::before,
   ::after {
