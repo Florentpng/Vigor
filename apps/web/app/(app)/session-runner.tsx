@@ -533,7 +533,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       <div>
         <p className="text-sm font-medium text-blue-600">{heading}</p>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-6xl font-extrabold leading-none text-gray-900">{title}</h1>
+          <h1 className="text-5xl sm:text-6xl font-extrabold leading-none text-gray-900">{title}</h1>
           {level && (
             <LevelBadge>{level}</LevelBadge>
           )}
@@ -567,16 +567,16 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       {total === 0 ? (
         <p className="text-sm text-gray-500">Cette séance ne contient aucun exercice.</p>
       ) : (
-        <ol className="space-y-3">
+        <ol className="stagger space-y-3">
           {workout.exercises.map((exercise, i) => (
             <li key={i} className="glass border rounded-xl shadow-sm overflow-hidden">
               <details className="group">
-                <summary className="flex items-center gap-3 px-4 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
+                <summary className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
                   <ExerciseThumb exercise={exercise} />
-                  <span className="flex-1 text-base font-semibold text-gray-900">
+                  <span className="min-w-0 flex-1 basis-40 text-base font-semibold text-gray-900">
                     {String(i + 1).padStart(2, '0')}. {exercise.name}
                   </span>
-                  <span className="shrink-0 flex flex-col items-end gap-1">
+                  <span className="ml-auto shrink-0 flex flex-col items-end gap-1">
                     <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
                     <RestLabel seconds={exercise.rest_time} />
                   </span>
@@ -601,7 +601,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
                   {exercise.description ? (
                     <p className="text-gray-600">{exercise.description}</p>
                   ) : (
-                    <p className="text-gray-400">Pas de description pour cet exercice.</p>
+                    <p className="text-gray-500">Pas de description pour cet exercice.</p>
                   )}
                   <ExerciseMedia exercise={exercise} />
                 </div>

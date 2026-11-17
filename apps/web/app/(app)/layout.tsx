@@ -38,10 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="justify-self-end col-start-3">
             <UserMenu email={user.email ?? ''} isAdmin={Boolean(profile?.is_admin)} />
           </div>
-        </div>
-      </header>
+        </div>      </header>
 
-      <main className="flex-1 w-full max-w-3xl mx-auto px-4 py-6 pb-24 md:pb-6">{children}</main>
+      <main className="page-enter flex-1 w-full max-w-3xl mx-auto px-4 py-6 pb-28 md:pb-20">{children}</main>
 
       <NavLinks className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t flex justify-around py-1" />
     </div>

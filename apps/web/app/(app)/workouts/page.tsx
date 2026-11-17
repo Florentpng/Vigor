@@ -13,7 +13,7 @@ export const revalidate = 0
 
 function WorkoutList({ workouts, days }: { workouts: WorkoutCard[]; days: Map<string, number[]> }) {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2">
+    <ul className="stagger grid gap-4 sm:grid-cols-2">
       {workouts.map((workout) => {
         const { muscles } = workout
         const plannedDays = days.get(workout.id) ?? []
@@ -92,7 +92,7 @@ export default async function WorkoutsPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-5xl font-extrabold leading-none text-gray-900">Séances</h1>
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">Séances</h1>
         <ButtonLink href="/workouts/new">+ Créer une séance</ButtonLink>
       </div>
 
@@ -116,7 +116,7 @@ export default async function WorkoutsPage({
               }`}
             >
               {label}
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="ml-2 text-xs text-gray-500">
                 {key === 'mine' ? mine.length : templates.length}
               </span>
             </Link>

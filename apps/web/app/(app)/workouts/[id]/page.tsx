@@ -44,7 +44,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           ← Toutes les séances
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-5xl font-extrabold leading-none text-gray-900">{title}</h1>
+          <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">{title}</h1>
           {level && <LevelBadge>{level}</LevelBadge>}
         </div>
         {detail.description && <p className="mt-3 text-gray-600">{detail.description}</p>}
@@ -71,7 +71,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
         {exercises.length === 0 ? (
           <p className="text-sm text-gray-500">Cette séance ne contient aucun exercice.</p>
         ) : (
-          <ol className="space-y-4">
+          <ol className="stagger space-y-4">
             {exercises.map((exercise, index) => {
               const isGif = exercise.video_url?.toLowerCase().endsWith('.gif')
 
@@ -79,7 +79,7 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
                 <li key={index} className="glass border rounded-xl p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium text-gray-400">
+                      <p className="text-xs font-medium text-gray-500">
                         Exercice {String(index + 1).padStart(2, '0')}
                       </p>
                       <h3 className="text-xl font-bold text-gray-900">{exercise.name}</h3>

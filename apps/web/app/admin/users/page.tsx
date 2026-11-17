@@ -32,7 +32,7 @@ export default async function AdminUsersPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Utilisateurs</h2>
+        <h2 className="text-3xl sm:text-4xl font-extrabold leading-none text-gray-900">Utilisateurs</h2>
         <p className="text-sm text-gray-500">
           {users.length} compte{users.length > 1 ? 's' : ''}
         </p>
@@ -42,7 +42,7 @@ export default async function AdminUsersPage() {
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error.message}</div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b text-xs font-semibold text-gray-500 uppercase tracking-wider">

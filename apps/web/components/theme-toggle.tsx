@@ -18,6 +18,16 @@ function getServerSnapshot() {
   return false
 }
 
+// Libellé « Mode sombre » + interrupteur (le libellé est masqué sur petit écran)
+export function ThemeSwitch() {
+  return (
+    <div className="flex items-center gap-2 text-sm text-gray-600">
+      <span className="hidden sm:inline">Mode sombre</span>
+      <ThemeToggle />
+    </div>
+  )
+}
+
 // Interrupteur clair / sombre. Le choix est gardé dans le navigateur ; le script de app/layout.tsx
 // l'applique avant l'affichage pour éviter un flash de la mauvaise couleur.
 export default function ThemeToggle({ className = '' }: { className?: string }) {

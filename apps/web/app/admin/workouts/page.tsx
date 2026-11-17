@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ButtonLink } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
 import { formatRestTime } from '@vigor/shared/format'
 import DeleteWorkoutButton from './delete-button'
@@ -18,7 +19,7 @@ type WorkoutRow = {
   }[]
 }
 
-const ROW_GRID = 'grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,1fr)_11rem] items-center gap-4'
+const ROW_GRID = 'min-w-[40rem] grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)_minmax(0,1fr)_11rem] items-center gap-4'
 
 export default async function AdminWorkoutsPage() {
   const supabase = await createClient()
@@ -36,20 +37,15 @@ export default async function AdminWorkoutsPage() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Séances Modèles</h2>
-        <Link
-          href="/admin/workouts/new"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-        >
-          + Ajouter une séance
-        </Link>
+        <h2 className="text-3xl sm:text-4xl font-extrabold leading-none text-gray-900">Séances Modèles</h2>
+        <ButtonLink href="/admin/workouts/new">+ Ajouter une séance</ButtonLink>
       </div>
 
       {error && (
         <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error.message}</div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border overflow-x-auto">
         <div
           className={`${ROW_GRID} bg-gray-50 border-b px-4 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider`}
         >

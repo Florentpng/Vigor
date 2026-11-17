@@ -21,7 +21,7 @@ export default async function PlanningPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-5xl font-extrabold leading-none text-gray-900">Planning</h1>
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">Planning</h1>
         <p className="mt-1 text-sm text-gray-600">
           Ta semaine type. Pour changer un jour, ouvre une séance depuis{' '}
           <Link href="/workouts" className="text-blue-600 hover:underline">
@@ -35,7 +35,7 @@ export default async function PlanningPage() {
         <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>
       )}
 
-      <ul className="space-y-3">
+      <ul className="stagger space-y-3">
         {WEEKDAYS.map(({ value, label }) => {
           const entry = plan.get(value)
           const isToday = value === today
@@ -67,7 +67,7 @@ export default async function PlanningPage() {
                   </span>
                 </Link>
               ) : (
-                <span className="text-sm text-gray-400">Repos</span>
+                <span className="text-sm text-gray-500">Repos</span>
               )}
             </li>
           )

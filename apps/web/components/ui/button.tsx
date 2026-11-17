@@ -22,7 +22,7 @@ type Options = { variant?: Variant; size?: Size; className?: string }
 
 function classes({ variant = 'primary', size = 'md', className }: Options) {
   return cx(
-    'inline-flex items-center justify-center text-center transition-colors cursor-pointer',
+    'inline-flex items-center justify-center text-center transition cursor-pointer active:scale-[0.98]',
     'disabled:opacity-50 disabled:cursor-not-allowed',
     SIZES[size],
     VARIANTS[variant],

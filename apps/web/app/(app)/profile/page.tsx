@@ -55,7 +55,7 @@ export default async function ProfilePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-5xl font-extrabold leading-none text-gray-900">Profil</h1>
+        <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">Profil</h1>
         <p className="mt-1 text-sm text-gray-600">{user?.email}</p>
       </div>
 
@@ -97,7 +97,7 @@ export default async function ProfilePage() {
           className="mb-4"
         />
 
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="stagger grid gap-3 sm:grid-cols-2">
           {allBadges.map((badge) => {
             const unlockedAt = badge.unlocked_at
 
@@ -131,7 +131,7 @@ export default async function ProfilePage() {
         {history.length === 0 ? (
           <p className="text-sm text-gray-500">Aucune séance enregistrée pour l&apos;instant.</p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="stagger space-y-3">
             {history.map((log) => (
               <li
                 key={log.id}

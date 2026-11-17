@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import ThemeToggle from '@/components/theme-toggle'
 import userMark from '../public/user-mark.png'
 import { logout } from '@/app/(auth)/actions'
 
@@ -34,7 +33,8 @@ export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: b
     'block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 cursor-pointer'
 
   return (
-    <div ref={containerRef} className="relative">
+    <div className="flex items-center gap-3">
+      <div ref={containerRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
@@ -74,11 +74,6 @@ export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: b
             </Link>
           )}
 
-          <div className="flex items-center justify-between border-t px-4 py-2">
-            <span className="text-sm text-gray-700">Mode sombre</span>
-            <ThemeToggle />
-          </div>
-
           <form action={logout} className="border-t">
             <button type="submit" role="menuitem" className={`${itemClass} hover:text-red-600`}>
               Déconnexion
@@ -86,6 +81,7 @@ export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: b
           </form>
         </div>
       )}
+      </div>
     </div>
   )
 }

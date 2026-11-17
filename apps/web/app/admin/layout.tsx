@@ -68,10 +68,9 @@ export default async function AdminLayout({
             <NavLinks links={ADMIN_LINKS} className="hidden md:flex items-center" />
             <UserMenu email={user.email ?? ''} isAdmin />
           </div>
-        </div>
-      </header>
+        </div>      </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-24 md:pb-6">{children}</main>
+      <main className="page-enter flex-1 max-w-7xl w-full mx-auto px-4 py-6 pb-28 md:pb-20">{children}</main>
 
       <NavLinks
         links={ADMIN_LINKS}

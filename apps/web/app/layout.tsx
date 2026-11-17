@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow_Condensed, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeSwitch } from "@/components/theme-toggle";
 
 // Police des titres : grasse et condensée
 const barlowCondensed = Barlow_Condensed({
@@ -42,6 +43,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       {/* suppressHydrationWarning : certaines extensions du navigateur ajoutent des attributs au <body> */}
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {children}
+
+        {/* Interrupteur clair / sombre, fixé en bas à droite de toutes les pages.
+            Sur téléphone, il se place au-dessus de la barre de navigation du bas. */}
+        <div className="fixed bottom-16 right-4 z-30 md:bottom-4">
+          <ThemeSwitch />
+        </div>
       </body>
     </html>
   );

@@ -121,20 +121,30 @@ body {
 }
 
 /*
- * Fond de page (mode sombre uniquement) : photo de salle de sport floutée et assombrie,
- * fixe derrière le contenu. Le conteneur « app-shell » doit être transparent pour la laisser voir.
+ * Fond de page : photo de salle de sport floutée, fixe derrière le contenu.
+ *  - mode clair : la photo est recouverte d'un voile clair (72 % ; plus bas, les textes gris
+ *    posés directement sur le fond perdent en lisibilité) ;
+ *  - mode sombre : la photo est assombrie.
+ * Le conteneur « app-shell » doit être transparent pour la laisser voir.
  */
-.dark body::before {
+body::before {
   content: '';
   position: fixed;
-  inset: -3rem; /* déborde pour que le flou ne laisse pas de bord clair */
+  inset: -3rem; /* déborde pour que le flou ne laisse pas de bord net */
   z-index: -1;
-  background: url('/background.jpg') center / cover no-repeat;
-  filter: blur(7px) brightness(0.4);
+  background:
+    linear-gradient(rgb(248 250 252 / 0.72), rgb(248 250 252 / 0.72)),
+    url('/background.jpg') center / cover no-repeat;
+  filter: blur(7px);
   pointer-events: none;
 }
 
-.dark .app-shell {
+.dark body::before {
+  background: url('/background.jpg') center / cover no-repeat;
+  filter: blur(7px) brightness(0.4);
+}
+
+.app-shell {
   background-color: transparent;
 }
 
@@ -178,8 +188,53 @@ body {
   color: #64748b;
 }
 
+/* Apparition en fondu : la page entière, puis les listes carte par carte */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-enter {
+  animation: fade-up 0.3s ease-out both;
+}
+
+.stagger > * {
+  animation: fade-up 0.35s ease-out both;
+}
+.stagger > :nth-child(2) { animation-delay: 0.04s; }
+.stagger > :nth-child(3) { animation-delay: 0.08s; }
+.stagger > :nth-child(4) { animation-delay: 0.12s; }
+.stagger > :nth-child(5) { animation-delay: 0.16s; }
+.stagger > :nth-child(6) { animation-delay: 0.2s; }
+.stagger > :nth-child(n + 7) { animation-delay: 0.24s; }
+
+/* Pas d'animation pour les personnes qui ont demandé à les réduire */
+@media (prefers-reduced-motion: reduce) {
+  .page-enter,
+  .stagger > * {
+    animation: none;
+  }
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Bordures par défaut (Tailwind 4 utilise la couleur du texte) */
 @layer base {
+  /* Focus clavier visible sur les boutons et liens (les champs ont déjà leur anneau) */
+  :focus-visible {
+    outline: 2px solid var(--color-blue-600);
+    outline-offset: 2px;
+  }
+
   /* Titres : police condensée, le h1 en majuscules */
   h1,
   h2,
