@@ -14,7 +14,7 @@ type WorkoutWithItems = {
     exercise_id: string
     order_index: number
     target_sets: number
-    target_reps: number
+    target_reps: number | null
     rest_time: number
   }[]
 }
@@ -34,7 +34,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
       .maybeSingle(),
     supabase
       .from('exercises')
-      .select('id, name, description, muscle_group, equipment, video_url')
+      .select('id, name, description, muscle_group, equipment, video_url, thumbnail_url')
       .order('name', { ascending: true }),
   ])
 

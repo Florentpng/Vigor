@@ -7,6 +7,7 @@ export type Exercise = {
   muscle_group: MuscleGroup
   equipment: Equipment
   video_url: string | null
+  thumbnail_url: string | null
 }
 
 export type Workout = {
@@ -22,8 +23,9 @@ export type SessionExercise = {
   muscle_group: string
   equipment: string
   video_url: string | null
+  thumbnail_url: string | null
   target_sets: number
-  target_reps: number
+  target_reps: number | null
   rest_time: number
 }
 
@@ -38,7 +40,7 @@ export type SessionWorkout = {
 export type WorkoutExerciseInput = {
   exercise_id: string
   target_sets: number
-  target_reps: number
+  target_reps: number | null
   rest_time: number
 }
 

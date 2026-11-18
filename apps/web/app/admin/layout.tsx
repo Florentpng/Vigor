@@ -57,9 +57,9 @@ export default async function AdminLayout({
             </Link>
             <Link
               href="/admin"
-              className="flex items-center gap-2 text-xl font-bold tracking-wide text-gray-900"
+              className="group flex items-center gap-2 text-xl font-bold tracking-wide text-gray-900"
             >
-              <Image src={logo} alt="" priority className="h-12 w-12" />
+              <Image src={logo} alt="" priority className="h-12 w-12 transition duration-150 group-hover:scale-110 group-hover:brightness-110" />
               Vigor Admin
             </Link>
           </div>

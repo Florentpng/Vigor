@@ -8,6 +8,7 @@ export type NavLink = { href: string; label: string }
 const APP_LINKS: NavLink[] = [
   { href: '/', label: 'Accueil' },
   { href: '/workouts', label: 'Séances' },
+  { href: '/planning', label: 'Planning' },
 ]
 
 export default function NavLinks({

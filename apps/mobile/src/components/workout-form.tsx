@@ -2,7 +2,7 @@ import { router, usePreventRemove } from 'expo-router'
 import { useState } from 'react'
 import { Alert, Pressable, Text, TextInput, View } from 'react-native'
 
-import { formatRestTime } from '@vigor/shared/format'
+import { formatReps, formatRestTime, parseRepsInput } from '@vigor/shared/format'
 import type { EditableWorkout } from '@vigor/shared/queries'
 import type { ActionResult } from '@vigor/shared/result'
 import type { Exercise, WorkoutInput } from '@vigor/shared/types'
@@ -28,7 +28,7 @@ function toItems(initial?: EditableWorkout): Item[] {
   return (initial?.items ?? []).map((i) => ({
     exercise_id: i.exercise_id,
     sets: String(i.sets),
-    reps: String(i.reps),
+    reps: formatReps(i.reps),
     rest: String(i.rest),
   }))
 }
@@ -91,12 +91,17 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
     const result = await onSubmit({
       name,
       description,
-      exercises: items.map((i) => ({
-        exercise_id: i.exercise_id,
-        target_sets: Number(i.sets),
-        target_reps: Number(i.reps),
-        rest_time: Number(i.rest),
-      })),
+      exercises: items.map((i) => {
+        // "max" -> null ; saisie invalide -> NaN (refusée par la validation)
+        const reps = parseRepsInput(i.reps)
+
+        return {
+          exercise_id: i.exercise_id,
+          target_sets: Number(i.sets),
+          target_reps: reps === undefined ? NaN : reps,
+          rest_time: Number(i.rest),
+        }
+      }),
     })
 
     if ('error' in result) {

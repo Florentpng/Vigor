@@ -41,16 +41,35 @@ export function parseWorkoutTitle(
   return { title: match[1], level: match[2] }
 }
 
+// Répétitions : null veut dire « max » (jusqu'à l'échec).
+// 12 -> "12", null -> "max"
+export function formatReps(reps: number | null): string {
+  return reps === null ? 'max' : String(reps)
+}
+
+// Saisie -> valeur : "12" -> 12, "max" -> null (insensible à la casse), autre chose -> undefined (invalide)
+export function parseRepsInput(value: string): number | null | undefined {
+  const text = value.trim().toLowerCase()
+  if (text === 'max') return null
+  if (!/^\d+$/.test(text)) return undefined
+
+  const reps = Number(text)
+  return reps >= 1 ? reps : undefined
+}
+
 // Temps d'effort estimé par répétition (secondes)
 const SECONDS_PER_REP = 4
+// Nombre de répétitions retenu pour estimer une série « max »
+const ESTIMATED_MAX_REPS = 12
 
 // Durée estimée d'une séance : effort de chaque série + repos entre les séries
 // (comme dans le déroulé de la séance, il n'y a pas de repos après la toute dernière série).
 export function estimateWorkoutSeconds(
-  exercises: { target_sets: number; target_reps: number; rest_time: number }[]
+  exercises: { target_sets: number; target_reps: number | null; rest_time: number }[]
 ): number {
   const total = exercises.reduce(
-    (sum, e) => sum + e.target_sets * (e.target_reps * SECONDS_PER_REP + e.rest_time),
+    (sum, e) =>
+      sum + e.target_sets * ((e.target_reps ?? ESTIMATED_MAX_REPS) * SECONDS_PER_REP + e.rest_time),
     0
   )
   const last = exercises[exercises.length - 1]

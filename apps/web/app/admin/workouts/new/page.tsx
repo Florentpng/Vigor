@@ -10,7 +10,7 @@ export default async function NewWorkoutPage() {
 
   const { data } = await supabase
     .from('exercises')
-    .select('id, name, description, muscle_group, equipment, video_url')
+    .select('id, name, description, muscle_group, equipment, video_url, thumbnail_url')
     .order('name', { ascending: true })
 
   return (

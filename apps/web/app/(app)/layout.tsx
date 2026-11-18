@@ -27,9 +27,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="max-w-6xl mx-auto px-4 h-14 grid grid-cols-[1fr_auto_1fr] items-center">
           <Link
             href="/"
-            className="justify-self-start flex items-center gap-2 font-display text-2xl font-extrabold uppercase tracking-wider text-gray-900"
+            className="group justify-self-start flex items-center gap-2 font-display text-2xl font-extrabold uppercase tracking-wider text-gray-900"
           >
-            <Image src={logo} alt="" priority className="h-12 w-12" />
+            <Image src={logo} alt="" priority className="h-12 w-12 transition duration-150 group-hover:scale-110 group-hover:brightness-110" />
             Vigor
           </Link>
 

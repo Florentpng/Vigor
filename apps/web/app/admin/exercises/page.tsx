@@ -12,7 +12,7 @@ export default async function AdminExercisesPage() {
 
   const { data, error } = await supabase
     .from('exercises')
-    .select('id, name, description, muscle_group, equipment, video_url')
+    .select('id, name, description, muscle_group, equipment, video_url, thumbnail_url')
     .order('name', { ascending: true })
 
   const exercises = (data ?? []) as Exercise[]

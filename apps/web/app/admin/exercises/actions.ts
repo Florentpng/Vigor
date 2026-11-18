@@ -11,7 +11,7 @@ export async function deleteExercise(id: string): Promise<ActionResult> {
 
   const { data: exercise } = await supabase
     .from('exercises')
-    .select('video_url')
+    .select('video_url, thumbnail_url')
     .eq('id', id)
     .maybeSingle()
 
@@ -29,8 +29,11 @@ export async function deleteExercise(id: string): Promise<ActionResult> {
   const { data: remaining } = await supabase.from('exercises').select('id').eq('id', id).maybeSingle()
   if (remaining) return { error: 'Suppression refusée (droits insuffisants).' }
 
-  const path = exercise?.video_url ? storagePathFromUrl(exercise.video_url) : null
-  if (path) await supabase.storage.from('exercise-media').remove([path])
+  // On supprime aussi les fichiers du bucket (média de démonstration et vignette)
+  const paths = [exercise?.video_url, exercise?.thumbnail_url]
+    .map((url) => (url ? storagePathFromUrl(url) : null))
+    .filter((path): path is string => Boolean(path))
+  if (paths.length > 0) await supabase.storage.from('exercise-media').remove(paths)
 
   revalidatePath('/admin/exercises')
   return { ok: true }

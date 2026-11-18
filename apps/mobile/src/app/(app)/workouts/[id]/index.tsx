@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Alert, Text, View } from 'react-native'
 
-import { formatRestTime } from '@vigor/shared/format'
+import { formatReps, formatRestTime } from '@vigor/shared/format'
 import { deleteMyWorkout } from '@vigor/shared/my-workouts'
 import { getWeeklyPlan } from '@vigor/shared/queries'
 import { getSessionWorkout } from '@vigor/shared/workouts'
@@ -115,7 +115,7 @@ export default function WorkoutDetailScreen() {
                 </View>
                 <View className="items-end">
                   <Text className="text-lg font-bold text-gray-900 dark:text-white">
-                    {exercise.target_sets} × {exercise.target_reps}
+                    {exercise.target_sets} × {formatReps(exercise.target_reps)}
                   </Text>
                   <Text className="text-xs text-gray-500 dark:text-zinc-400">
                     Repos {formatRestTime(exercise.rest_time)}

@@ -71,7 +71,7 @@ export default async function ProfilePage() {
           label="Temps total"
         />
         <StatTile
-          icon={<FlameIcon className="h-6 w-6 text-orange-600" />}
+          icon={<FlameIcon className="h-7 w-7 text-orange-600" />}
           value={String(totals.calories)}
           label="kcal brûlées"
         />

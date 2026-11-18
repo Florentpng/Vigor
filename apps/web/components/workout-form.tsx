@@ -4,21 +4,26 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { MUSCLE_GROUPS } from '@vigor/shared/constants'
-import { formatRestTime } from '@vigor/shared/format'
+import { formatReps, formatRestTime, parseRepsInput } from '@vigor/shared/format'
 import type { Exercise, WorkoutInput } from '@vigor/shared/types'
 import type { ActionResult } from '@vigor/shared/workout-input'
+
+// Valeur de `reps` quand le bouton « Max » est activé (jusqu'à l'échec)
+const MAX_REPS = 'max'
 
 type Item = {
   exercise_id: string
   sets: string
   reps: string
   rest: string
+  // dernier nombre saisi, rétabli quand on désactive « Max »
+  lastReps?: string
 }
 
 export type WorkoutFormInitial = {
   name: string
   description: string
-  items: { exercise_id: string; sets: number; reps: number; rest: number }[]
+  items: { exercise_id: string; sets: number; reps: number | null; rest: number }[]
 }
 
 type Props = {
@@ -53,7 +58,7 @@ export default function WorkoutForm({
     (initial?.items ?? []).map((i) => ({
       exercise_id: i.exercise_id,
       sets: String(i.sets),
-      reps: String(i.reps),
+      reps: formatReps(i.reps),
       rest: String(i.rest),
     }))
   )
@@ -74,8 +79,24 @@ export default function WorkoutForm({
     setSelected('')
   }
 
-  const updateItem = (index: number, field: keyof Omit<Item, 'exercise_id'>, value: string) => {
+  const updateItem = (
+    index: number,
+    field: keyof Omit<Item, 'exercise_id' | 'lastReps'>,
+    value: string
+  ) => {
     setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
+  }
+
+  // Bouton « Max » : remplace le nombre de répétitions par MAX, et le rétablit au second clic
+  const toggleMax = (index: number) => {
+    setItems(
+      items.map((item, i) => {
+        if (i !== index) return item
+        return item.reps === MAX_REPS
+          ? { ...item, reps: item.lastReps ?? '12' }
+          : { ...item, reps: MAX_REPS, lastReps: item.reps }
+      })
+    )
   }
 
   const moveItem = (index: number, direction: -1 | 1) => {
@@ -95,12 +116,17 @@ export default function WorkoutForm({
     const input: WorkoutInput = {
       name,
       description,
-      exercises: items.map((i) => ({
-        exercise_id: i.exercise_id,
-        target_sets: Number(i.sets),
-        target_reps: Number(i.reps),
-        rest_time: Number(i.rest),
-      })),
+      exercises: items.map((i) => {
+        // « max » -> null ; une saisie invalide -> NaN, que la validation refuse
+        const reps = parseRepsInput(i.reps)
+
+        return {
+          exercise_id: i.exercise_id,
+          target_sets: Number(i.sets),
+          target_reps: reps === undefined ? NaN : reps,
+          rest_time: Number(i.rest),
+        }
+      }),
     }
 
     startTransition(async () => {
@@ -254,18 +280,45 @@ export default function WorkoutForm({
                         className={`${inputClass} mt-1`}
                       />
                     </label>
-                    <label className="text-xs text-gray-600">
-                      Répétitions
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        required
-                        value={item.reps}
-                        onChange={(e) => updateItem(index, 'reps', e.target.value)}
-                        className={`${inputClass} mt-1`}
-                      />
-                    </label>
+                    <div className="text-xs text-gray-600">
+                      <label htmlFor={`reps-${index}`}>Répétitions</label>
+                      <div className="mt-1 flex gap-2">
+                        {item.reps === MAX_REPS ? (
+                          // « Max » remplace le nombre : le champ n'est plus modifiable
+                          <input
+                            id={`reps-${index}`}
+                            type="text"
+                            readOnly
+                            value="MAX"
+                            aria-label="Répétitions : max, jusqu'à l'échec"
+                            className={`${inputClass} min-w-0 flex-1 font-bold text-blue-600`}
+                          />
+                        ) : (
+                          <input
+                            id={`reps-${index}`}
+                            type="number"
+                            min={1}
+                            step={1}
+                            required
+                            value={item.reps}
+                            onChange={(e) => updateItem(index, 'reps', e.target.value)}
+                            className={`${inputClass} min-w-0 flex-1`}
+                          />
+                        )}
+                        <Button
+                          variant={item.reps === MAX_REPS ? 'primary' : 'secondary'}
+                          onClick={() => toggleMax(index)}
+                          aria-pressed={item.reps === MAX_REPS}
+                          title="Max : jusqu'à l'échec"
+                          className="shrink-0 px-3"
+                        >
+                          Max
+                        </Button>
+                      </div>
+                      {item.reps === MAX_REPS && (
+                        <span className="block mt-1 text-gray-500">Jusqu&apos;à l&apos;échec</span>
+                      )}
+                    </div>
                     <label className="text-xs text-gray-600">
                       Repos (secondes)
                       <input

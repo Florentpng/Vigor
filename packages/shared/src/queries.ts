@@ -98,7 +98,7 @@ export async function getWorkoutCards(supabase: SupabaseClient): Promise<Query<W
 export type EditableWorkout = {
   name: string
   description: string
-  items: { exercise_id: string; sets: number; reps: number; rest: number }[]
+  items: { exercise_id: string; sets: number; reps: number | null; rest: number }[]
 }
 
 type EditableRow = {
@@ -108,7 +108,7 @@ type EditableRow = {
     exercise_id: string
     order_index: number
     target_sets: number
-    target_reps: number
+    target_reps: number | null
     rest_time: number
   }[]
 }
@@ -141,7 +141,7 @@ export async function getEditableWorkout(
 export async function getExercises(supabase: SupabaseClient): Promise<Query<Exercise[]>> {
   const { data, error } = await supabase
     .from('exercises')
-    .select('id, name, description, muscle_group, equipment, video_url')
+    .select('id, name, description, muscle_group, equipment, video_url, thumbnail_url')
     .order('name', { ascending: true })
   return { data: (data ?? []) as Exercise[], error: error?.message ?? null }
 }

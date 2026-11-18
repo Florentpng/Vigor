@@ -55,10 +55,6 @@ export default function UserMenu({ email, isAdmin }: { email: string; isAdmin: b
             {email}
           </p>
 
-          <Link href="/planning" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
-            Planning
-          </Link>
-
           <Link href="/profile" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
             Profil
           </Link>

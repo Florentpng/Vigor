@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { ButtonLink } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/server'
-import { formatRestTime } from '@vigor/shared/format'
+import { formatReps, formatRestTime } from '@vigor/shared/format'
 import DeleteWorkoutButton from './delete-button'
 
 export const revalidate = 0
@@ -13,7 +13,7 @@ type WorkoutRow = {
   workout_exercises: {
     order_index: number
     target_sets: number
-    target_reps: number
+    target_reps: number | null
     rest_time: number
     exercises: { name: string; muscle_group: string; equipment: string } | null
   }[]
@@ -127,7 +127,7 @@ export default async function AdminWorkoutsPage() {
                                 {item.exercises?.equipment}
                               </td>
                               <td className="py-2 pr-4 text-gray-600">{item.target_sets}</td>
-                              <td className="py-2 pr-4 text-gray-600">{item.target_reps}</td>
+                              <td className="py-2 pr-4 text-gray-600">{formatReps(item.target_reps)}</td>
                               <td className="py-2 text-gray-600">{formatRestTime(item.rest_time)}</td>
                             </tr>
                           ))}

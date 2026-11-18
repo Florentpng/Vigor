@@ -11,8 +11,8 @@ export function validateWorkoutInput(input: WorkoutInput): string | null {
       !e.exercise_id ||
       !Number.isInteger(e.target_sets) ||
       e.target_sets < 1 ||
-      !Number.isInteger(e.target_reps) ||
-      e.target_reps < 1 ||
+      // target_reps vaut null pour « max » (jusqu'à l'échec)
+      (e.target_reps !== null && (!Number.isInteger(e.target_reps) || e.target_reps < 1)) ||
       !Number.isInteger(e.rest_time) ||
       e.rest_time < 0
   )

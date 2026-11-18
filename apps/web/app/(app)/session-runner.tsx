@@ -21,6 +21,7 @@ import { computeCalories } from '@vigor/shared/calories'
 import {
   estimateWorkoutSeconds,
   formatDuration,
+  formatReps,
   formatRestTime,
   parseWorkoutTitle,
 } from '@vigor/shared/format'
@@ -121,17 +122,31 @@ function ExerciseMedia({ exercise }: { exercise: SessionExercise }) {
   )
 }
 
-// Petite vignette du média de l'exercice (rien si l'exercice n'en a pas)
+// Vignette de l'exercice, à gauche de son nom. Tant que l'admin n'en a pas envoyé, un emplacement
+// neutre garde les lignes alignées.
 function ExerciseThumb({ exercise }: { exercise: SessionExercise }) {
-  if (!exercise.video_url) return null
-  const className = 'h-12 w-12 shrink-0 rounded-lg border object-cover'
+  // Panneau collé au bord gauche de la carte, sur toute sa hauteur. L'image est en position
+  // absolue : elle remplit le panneau sans agrandir la ligne (les bords peuvent être rognés).
+  const panel = 'relative w-20 sm:w-[6.5rem] shrink-0 self-stretch bg-gray-100'
 
-  if (exercise.video_url.toLowerCase().endsWith('.gif')) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={exercise.video_url} alt="" className={className} />
+  if (exercise.thumbnail_url) {
+    return (
+      <span className={panel}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={exercise.thumbnail_url}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </span>
+    )
   }
 
-  return <video src={exercise.video_url} muted playsInline preload="metadata" className={className} />
+  return (
+    <span className={`${panel} flex items-center justify-center text-gray-400`} aria-hidden="true">
+      <DumbbellIcon className="h-6 w-6" />
+    </span>
+  )
 }
 
 type Props = {
@@ -445,7 +460,10 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               À suivre :{' '}
               <span className="font-semibold text-gray-900">{exercise.name}</span>
               <span className="block">
-                série {setNumber} sur {exercise.target_sets} · {exercise.target_reps} répétitions
+                série {setNumber} sur {exercise.target_sets} ·{' '}
+                {exercise.target_reps === null
+                  ? 'max de répétitions (jusqu’à l’échec)'
+                  : `${exercise.target_reps} répétitions`}
               </span>
             </div>
           </div>
@@ -481,8 +499,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               <p className="text-xs text-blue-600">série</p>
             </div>
             <div className="bg-gray-50 rounded-lg py-3">
-              <p className="font-display text-4xl font-bold text-gray-900">{exercise.target_reps}</p>
-              <p className="text-xs text-gray-500">répétitions</p>
+              <p className="font-display text-4xl font-bold uppercase text-gray-900">
+                {formatReps(exercise.target_reps)}
+              </p>
+              <p className="text-xs text-gray-500">
+                {exercise.target_reps === null ? 'jusqu’à l’échec' : 'répétitions'}
+              </p>
             </div>
             <div className="bg-gray-50 rounded-lg py-3">
               <p className="font-display text-3xl font-bold leading-[2.5rem] text-gray-900">
@@ -571,12 +593,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           {workout.exercises.map((exercise, i) => (
             <li key={i} className="glass border rounded-xl shadow-sm overflow-hidden">
               <details className="group">
-                <summary className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
+                <summary className="flex flex-wrap items-center gap-x-3 pr-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
                   <ExerciseThumb exercise={exercise} />
-                  <span className="min-w-0 flex-1 basis-40 text-base font-semibold text-gray-900">
+                  <span className="min-w-0 flex-1 basis-40 py-4 text-base font-semibold text-gray-900">
                     {String(i + 1).padStart(2, '0')}. {exercise.name}
                   </span>
-                  <span className="ml-auto shrink-0 flex flex-col items-end gap-1">
+                  <span className="ml-auto shrink-0 flex flex-col items-end gap-1 py-4">
                     <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
                     <RestLabel seconds={exercise.rest_time} />
                   </span>

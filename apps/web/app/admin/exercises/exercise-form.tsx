@@ -29,8 +29,10 @@ export default function ExerciseForm({ exercise }: { exercise?: Exercise }) {
     equipment: exercise?.equipment ?? EQUIPMENTS[0],
   })
   const [file, setFile] = useState<File | null>(null)
+  const [thumbFile, setThumbFile] = useState<File | null>(null)
 
   const currentUrl = exercise?.video_url ?? null
+  const currentThumbnail = exercise?.thumbnail_url ?? null
   const isGif = currentUrl?.toLowerCase().endsWith('.gif') ?? false
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -38,23 +40,29 @@ export default function ExerciseForm({ exercise }: { exercise?: Exercise }) {
     setLoading(true)
     setErrorMsg('')
 
-    let uploadedPath: string | null = null
+    // Fichiers envoyés pendant cette soumission : retirés du bucket si l'enregistrement échoue
+    const uploadedPaths: string[] = []
+
+    // Envoie un fichier dans le bucket exercise-media et renvoie son URL publique
+    const upload = async (toUpload: File, prefix = '') => {
+      const fileExt = toUpload.name.split('.').pop()
+      const fileName = `${prefix}${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+      const filePath = `exercises/${fileName}`
+
+      const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, toUpload)
+      if (uploadError) throw uploadError
+      uploadedPaths.push(filePath)
+
+      return supabase.storage.from(BUCKET).getPublicUrl(filePath).data.publicUrl
+    }
 
     try {
       let videoUrl = currentUrl
+      let thumbnailUrl = currentThumbnail
 
-      // 1. Upload du nouveau média dans le bucket exercise-media
-      if (file) {
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-        const filePath = `exercises/${fileName}`
-
-        const { error: uploadError } = await supabase.storage.from(BUCKET).upload(filePath, file)
-        if (uploadError) throw uploadError
-        uploadedPath = filePath
-
-        videoUrl = supabase.storage.from(BUCKET).getPublicUrl(filePath).data.publicUrl
-      }
+      // 1. Upload des nouveaux fichiers (média de démonstration et vignette)
+      if (file) videoUrl = await upload(file)
+      if (thumbFile) thumbnailUrl = await upload(thumbFile, 'thumb-')
 
       // 2. Création ou mise à jour de l'exercice
       const values = {
@@ -63,6 +71,7 @@ export default function ExerciseForm({ exercise }: { exercise?: Exercise }) {
         muscle_group: formData.muscle_group,
         equipment: formData.equipment,
         video_url: videoUrl,
+        thumbnail_url: thumbnailUrl,
       }
 
       const { error: saveError } = exercise
@@ -70,17 +79,18 @@ export default function ExerciseForm({ exercise }: { exercise?: Exercise }) {
         : await supabase.from('exercises').insert(values)
       if (saveError) throw saveError
 
-      // 3. Le remplacement a réussi : on supprime l'ancien média du bucket
-      if (file && currentUrl) {
-        const oldPath = storagePathFromUrl(currentUrl)
-        if (oldPath) await supabase.storage.from(BUCKET).remove([oldPath])
-      }
+      // 3. Le remplacement a réussi : on supprime les anciens fichiers du bucket
+      const oldPaths = [
+        file && currentUrl ? storagePathFromUrl(currentUrl) : null,
+        thumbFile && currentThumbnail ? storagePathFromUrl(currentThumbnail) : null,
+      ].filter((path): path is string => Boolean(path))
+      if (oldPaths.length > 0) await supabase.storage.from(BUCKET).remove(oldPaths)
 
       router.push('/admin/exercises')
       router.refresh()
     } catch (err: unknown) {
-      // L'enregistrement a échoué : on retire le fichier envoyé pour ne pas laisser d'orphelin
-      if (uploadedPath) await supabase.storage.from(BUCKET).remove([uploadedPath])
+      // L'enregistrement a échoué : on retire les fichiers envoyés pour ne pas laisser d'orphelins
+      if (uploadedPaths.length > 0) await supabase.storage.from(BUCKET).remove(uploadedPaths)
 
       const message =
         err && typeof err === 'object' && 'message' in err ? String(err.message) : ''
@@ -162,6 +172,39 @@ export default function ExerciseForm({ exercise }: { exercise?: Exercise }) {
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             placeholder="Consignes d'exécution..."
           />
+        </div>
+
+        <div>
+          <p id="thumb-label" className="block text-sm font-medium text-gray-700 mb-1">
+            Vignette (image PNG, JPG ou WebP)
+          </p>
+
+          {currentThumbnail && (
+            <div className="mb-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentThumbnail}
+                alt={`Vignette de ${formData.name}`}
+                className="h-24 w-24 rounded-lg border object-contain"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Vignette actuelle. Choisis un fichier ci-dessous pour la remplacer, sinon elle est
+                conservée.
+              </p>
+            </div>
+          )}
+
+          <input
+            id="thumbnail"
+            aria-labelledby="thumb-label"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(e) => setThumbFile(e.target.files?.[0] || null)}
+            className="block w-fit max-w-full cursor-pointer text-sm text-gray-500 file:cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            Affichée à gauche du nom de l&apos;exercice dans les séances.
+          </p>
         </div>
 
         <div>
