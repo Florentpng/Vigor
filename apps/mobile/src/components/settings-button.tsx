@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons'
 import { useState } from 'react'
 import { Modal, Pressable, Switch, Text, useColorScheme, View } from 'react-native'
 
-import { Button, glassClass } from '@/components/ui'
+import { Button } from '@/components/ui'
 import { supabase } from '@/lib/supabase'
 import { ACCENT_DARK, setThemePreference } from '@/lib/theme'
 
@@ -26,7 +26,7 @@ export default function SettingsButton() {
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable className="flex-1 items-center justify-center bg-black/60 p-6" onPress={() => setOpen(false)}>
           {/* Un appui sur la carte ne ferme pas la fenêtre */}
-          <Pressable className={`w-full max-w-sm gap-5 bg-white p-6 dark:bg-zinc-900 ${glassClass}`} onPress={() => {}}>
+          <Pressable className="w-full max-w-sm gap-5 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900" onPress={() => {}}>
             <Text className="font-display-xb text-3xl uppercase leading-none text-gray-900 dark:text-white">Paramètres</Text>
 
             <View className="flex-row items-center justify-between">

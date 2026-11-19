@@ -123,18 +123,19 @@ export default function WorkoutDetailScreen() {
         <View className="gap-4">
           {workout.exercises.map((exercise, index) => (
             <View key={index} className={glassClass}>
+              {/* Numéro de l'exercice, dans le coin haut droit de la carte */}
+              <Text className="absolute right-4 top-3 font-display text-2xl text-gray-400 dark:text-zinc-500">
+                {index + 1}
+              </Text>
               <View className="p-4">
-                <Text className="text-xs font-medium text-gray-500 dark:text-zinc-400">
-                  Exercice {String(index + 1).padStart(2, '0')}
-                </Text>
-                <Text className="font-display text-2xl text-gray-900 dark:text-white">{exercise.name}</Text>
+                <Text className="pr-8 font-display text-2xl text-gray-900 dark:text-white">{exercise.name}</Text>
                 {exercise.muscle_group ? (
                   <Text className="mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
                     {exercise.muscle_group} · {exercise.equipment}
                   </Text>
                 ) : null}
 
-                <View className="mt-3 gap-1.5">
+                <View className="mt-3 flex-row flex-wrap items-center gap-x-3 gap-y-1.5">
                   <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
                   <RestLabel seconds={exercise.rest_time} />
                 </View>

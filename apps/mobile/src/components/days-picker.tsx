@@ -48,7 +48,7 @@ export default function DaysPicker({ workoutId, initialDays, takenBy }: Props) {
         Cette séance sera proposée en page d&apos;accueil les jours cochés.
       </Text>
 
-      <View className="mt-3 flex-row flex-wrap gap-2">
+      <View className="mt-3 flex-row gap-1.5">
         {WEEKDAYS.map(({ value, label, short }) => {
           const active = days.includes(value)
           return (
@@ -58,13 +58,13 @@ export default function DaysPicker({ workoutId, initialDays, takenBy }: Props) {
               accessibilityRole="checkbox"
               accessibilityState={{ checked: active }}
               accessibilityLabel={label}
-              className={`min-w-12 items-center rounded-lg border px-3 py-2 ${
+              className={`flex-1 items-center rounded-lg border py-2 ${
                 active
                   ? 'border-blue-600 bg-blue-600'
                   : 'border-gray-300 bg-white active:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-800'
               }`}
             >
-              <Text className={`text-sm font-medium ${active ? 'text-white' : 'text-gray-700 dark:text-zinc-200'}`}>
+              <Text numberOfLines={1} className={`text-sm font-medium ${active ? 'text-white' : 'text-gray-700 dark:text-zinc-200'}`}>
                 {short}
               </Text>
             </Pressable>

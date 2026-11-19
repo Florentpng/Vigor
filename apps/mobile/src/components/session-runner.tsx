@@ -539,17 +539,21 @@ function ExerciseRow({ exercise, position }: { exercise: SessionExercise; positi
       >
         <ExerciseThumb url={exercise.thumbnail_url} />
         <View className="shrink flex-1 gap-1.5 px-3 py-4">
-          <Text className="text-base font-semibold text-gray-900 dark:text-white">
+          <Text className="pr-5 text-base font-semibold text-gray-900 dark:text-white">
             {String(position).padStart(2, '0')}. {exercise.name}
           </Text>
-          <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
-          <RestLabel seconds={exercise.rest_time} />
+          {/* Série et repos sur la même ligne */}
+          <View className="flex-row items-center gap-x-2">
+            <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} compact />
+            <RestLabel seconds={exercise.rest_time} compact />
+          </View>
         </View>
+        {/* Flèche dans le coin : elle ne prend plus de place à côté du texte */}
         <Ionicons
           name={open ? 'chevron-up' : 'chevron-down'}
           size={16}
           color={dark ? '#8b9bb0' : '#94a3b8'}
-          style={{ marginRight: 14 }}
+          style={{ position: 'absolute', top: 14, right: 12 }}
         />
       </Pressable>
 

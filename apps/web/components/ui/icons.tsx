@@ -61,3 +61,20 @@ export function FlameIcon({ className = 'h-5 w-5', ...props }: IconProps) {
     </svg>
   )
 }
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <rect x="3" y="4.5" width="18" height="17" rx="2" />
+      <path d="M3 10h18M8 2.5v4M16 2.5v4" />
+    </Stroke>
+  )
+}
+
+export function TrashIcon(props: IconProps) {
+  return (
+    <Stroke {...props}>
+      <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5M14 11v5" />
+    </Stroke>
+  )
+}

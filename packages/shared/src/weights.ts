@@ -1,23 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { type ActionResult, getUserId, INVALID_WEIGHT, isValidWeight } from './result'
 
-export type WeightEntry = { id: string; measured_on: string; weight_kg: number }
+export type WeightEntry = { id: string; measured_on: string; weight_kg: number; created_at: string }
 
 // Date du jour à Paris, au format AAAA-MM-JJ (celui de la colonne `date`).
 export function getTodayDate(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date())
 }
 
-// Pesées de la plus récente à la plus ancienne.
+// Pesées de la plus récente à la plus ancienne (à date égale, la dernière saisie d'abord).
 export async function getWeightEntries(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ data: WeightEntry[]; error: string | null }> {
   const { data, error } = await supabase
     .from('weight_entries')
-    .select('id, measured_on, weight_kg')
+    .select('id, measured_on, weight_kg, created_at')
     .eq('user_id', userId)
     .order('measured_on', { ascending: false })
+    .order('created_at', { ascending: false })
   return { data: (data ?? []) as WeightEntry[], error: error?.message ?? null }
 }
 
@@ -28,12 +29,13 @@ export async function getLatestWeight(supabase: SupabaseClient, userId: string):
     .select('weight_kg')
     .eq('user_id', userId)
     .order('measured_on', { ascending: false })
+    .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
   return data?.weight_kg ?? null
 }
 
-// Enregistre le poids d'un jour ; une seconde saisie le même jour remplace la première.
+// Ajoute une pesée à une date ; plusieurs pesées le même jour sont possibles.
 export async function saveWeightEntry(
   supabase: SupabaseClient,
   measuredOn: string,
@@ -50,7 +52,7 @@ export async function saveWeightEntry(
 
   const { error } = await supabase
     .from('weight_entries')
-    .upsert({ user_id: userId, measured_on: measuredOn, weight_kg: weightKg }, { onConflict: 'user_id,measured_on' })
+    .insert({ user_id: userId, measured_on: measuredOn, weight_kg: weightKg })
   if (error) return { error: error.message }
   return { ok: true }
 }

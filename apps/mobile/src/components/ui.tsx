@@ -37,6 +37,7 @@ export function Screen({ children, refreshing = false, onRefresh }: ScreenProps)
       className="flex-1"
       contentContainerClassName="gap-5 p-4 pb-10"
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
       // iOS : décale le contenu sous l'en-tête transparent des piles (Séances), sinon il passe dessous
       contentInsetAdjustmentBehavior="automatic"
       // iOS : le clavier ne masque pas le champ en cours de saisie
@@ -169,26 +170,41 @@ export function LevelBadge({ children, size = 'lg' }: PropsWithChildren<{ size?:
   )
 }
 
-// « 4 SÉRIES × 10 REPS » dans une pastille avec un chrono
-export function SetsPill({ sets, reps }: { sets: number; reps: number | null }) {
+// « 4 SÉRIES × 10 REPS » dans une pastille avec un chrono ; `compact` : plus petite, pour tenir à côté du repos
+export function SetsPill({ sets, reps, compact = false }: { sets: number; reps: number | null; compact?: boolean }) {
   const accent = useAccent()
   return (
-    <View className="flex-row items-center gap-1.5 self-start rounded-full border border-blue-600/40 bg-blue-50 px-3 py-1">
-      <Ionicons name="timer-outline" size={14} color={accent} />
-      <Text className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+    <View
+      className={`shrink-0 flex-row items-center rounded-full border border-blue-600/40 bg-blue-50 ${
+        compact ? 'gap-1 px-2.5 py-1' : 'gap-1.5 px-3 py-1'
+      }`}
+    >
+      <Ionicons name="timer-outline" size={compact ? 12 : 14} color={accent} />
+      <Text
+        className={`font-bold uppercase text-gray-900 dark:text-white ${
+          compact ? 'text-[11px] tracking-normal' : 'text-xs tracking-wide'
+        }`}
+      >
         {sets} séries × {formatReps(reps)} reps
       </Text>
     </View>
   )
 }
 
-// « REPOS : 2 MIN » avec un sablier
-export function RestLabel({ seconds }: { seconds: number }) {
+// « REPOS : 2 MIN » avec un sablier ; `compact` : reste sur une seule ligne (le texte rétrécit au besoin)
+export function RestLabel({ seconds, compact = false }: { seconds: number; compact?: boolean }) {
   const accent = useAccent()
   return (
-    <View className="flex-row items-center gap-1">
+    <View className={`flex-row items-center gap-1 ${compact ? 'shrink' : ''}`}>
       <Ionicons name="hourglass-outline" size={12} color={accent} />
-      <Text className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+      <Text
+        numberOfLines={compact ? 1 : undefined}
+        adjustsFontSizeToFit={compact}
+        minimumFontScale={0.7}
+        className={`shrink text-xs font-medium uppercase text-gray-500 dark:text-zinc-400 ${
+          compact ? 'tracking-normal' : 'tracking-wide'
+        }`}
+      >
         Repos : {formatRestTime(seconds)}
       </Text>
     </View>

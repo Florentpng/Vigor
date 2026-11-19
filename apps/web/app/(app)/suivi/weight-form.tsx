@@ -61,8 +61,7 @@ export default function WeightForm({ today }: { today: string }) {
         </Button>
       </div>
       <p className="text-xs text-gray-500">
-        La pesée la plus récente sert au calcul des calories brûlées pendant tes séances. Une nouvelle saisie le
-        même jour remplace la précédente.
+        La pesée la plus récente sert au calcul des calories brûlées pendant tes séances.
       </p>
       {message && (
         <p className={`text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
