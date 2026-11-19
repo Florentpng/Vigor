@@ -18,7 +18,7 @@ export default function SettingsButton() {
         accessibilityRole="button"
         accessibilityLabel="Paramètres"
         hitSlop={8}
-        className="mr-4 active:opacity-60"
+        className="active:opacity-60"
       >
         <Ionicons name="settings-outline" size={24} color={dark ? '#e2e8f0' : '#334155'} />
       </Pressable>

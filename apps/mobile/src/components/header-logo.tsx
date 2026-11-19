@@ -1,12 +1,15 @@
 import { Image } from 'expo-image'
-import { Text, View } from 'react-native'
+import { View } from 'react-native'
 
-// Logo V + « VIGOR », comme l'en-tête du web
+// Logo V seul : la place à côté sert au bandeau de musique
 export default function HeaderLogo() {
   return (
-    <View className="flex-row items-center gap-2">
-      <Image source={require('@/assets/images/logo-v.png')} style={{ width: 40, height: 40 }} />
-      <Text className="font-display-xb text-2xl uppercase tracking-wider text-gray-900 dark:text-white">Vigor</Text>
+    <View className="flex-row items-center">
+      <Image
+        source={require('@/assets/images/logo-v.png')}
+        accessibilityLabel="Vigor"
+        style={{ width: 40, height: 40 }}
+      />
     </View>
   )
 }

@@ -3,8 +3,7 @@ import { Tabs } from 'expo-router'
 import type { ComponentProps } from 'react'
 import type { ColorValue } from 'react-native'
 
-import HeaderLogo from '@/components/header-logo'
-import SettingsButton from '@/components/settings-button'
+import AppHeader from '@/components/app-header'
 import { useAccent } from '@/lib/theme'
 
 type IconName = ComponentProps<typeof Ionicons>['name']
@@ -23,9 +22,8 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerTitle: () => <HeaderLogo />,
-        headerTitleAlign: 'left',
-        headerRight: () => <SettingsButton />,
+        // En-tête maison : logo, bandeau Spotify, engrenage (voir app-header.tsx)
+        header: () => <AppHeader />,
         tabBarActiveTintColor: accent,
         // Fond transparent : la photo du fond reste visible derrière les écrans
         sceneStyle: { backgroundColor: 'transparent' },
