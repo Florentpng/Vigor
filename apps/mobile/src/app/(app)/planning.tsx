@@ -5,7 +5,7 @@ import { WEEKDAYS } from '@vigor/shared/constants'
 import { getTodayWeekday } from '@vigor/shared/format'
 import { getWeeklyPlan } from '@vigor/shared/queries'
 
-import { Chip, ErrorBox, glassClass, Loading, Screen, Title } from '@/components/ui'
+import { Chip, ErrorBox, glassSurface, Loading, Screen, Title } from '@/components/ui'
 import { useUserId } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { useAccent } from '@/lib/theme'
@@ -49,10 +49,14 @@ export default function PlanningScreen() {
           return (
             <View
               key={value}
-              className={`flex-row items-center justify-between gap-3 px-4 py-4 ${glassClass} ${
-                isToday ? 'border-blue-600' : ''
+              className={`flex-row items-center justify-between gap-3 px-4 py-4 ${glassSurface} ${
+                isToday ? 'border-blue-600' : 'border-gray-200 dark:border-zinc-800'
               }`}
-              style={isToday ? { shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } } : undefined}
+              style={
+                isToday
+                  ? { shadowColor: accent, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 0 }, elevation: 6 }
+                  : undefined
+              }
             >
               <View className="flex-row items-center gap-2">
                 <Text className="w-24 font-display text-2xl uppercase text-gray-900 dark:text-white">{label}</Text>

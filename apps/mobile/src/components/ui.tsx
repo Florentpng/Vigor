@@ -79,7 +79,10 @@ export function SectionTitle({ children, right }: PropsWithChildren<{ right?: Re
 }
 
 // Carte très légèrement transparente : laisse deviner la photo de fond
-export const glassClass = 'rounded-xl border border-gray-200 bg-white/90 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80'
+// Sans couleur de bordure : pour les cartes dont la bordure change (badge débloqué, jour courant),
+// car deux classes de couleur de bordure sur le même élément se contredisent.
+export const glassSurface = 'rounded-xl border bg-white/90 shadow-sm dark:bg-zinc-900/80'
+export const glassClass = `${glassSurface} border-gray-200 dark:border-zinc-800`
 const cardClass = `${glassClass} p-4`
 
 // Carte ; devient touchable si onPress est fourni
@@ -115,6 +118,7 @@ export function Chip({ children, color = 'blue' }: PropsWithChildren<{ color?: k
 }
 
 const buttonClasses = {
+  success: { box: 'bg-green-600 active:bg-green-700', text: 'text-white', spinner: 'white' },
   primary: { box: 'bg-blue-600 active:bg-blue-700', text: 'text-white', spinner: 'white' },
   secondary: {
     box: 'border border-gray-300 bg-white active:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:active:bg-zinc-800',
@@ -127,11 +131,12 @@ const buttonClasses = {
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string
   variant?: keyof typeof buttonClasses
+  size?: 'md' | 'lg'
   pending?: boolean
   className?: string
 }
 
-export function Button({ label, variant = 'primary', pending = false, disabled, className = '', ...props }: ButtonProps) {
+export function Button({ label, variant = 'primary', size = 'md', pending = false, disabled, className = '', ...props }: ButtonProps) {
   const accent = useAccent()
   const style = buttonClasses[variant]
   const spinner = style.spinner || accent
@@ -139,12 +144,12 @@ export function Button({ label, variant = 'primary', pending = false, disabled, 
     <Pressable
       {...props}
       disabled={disabled || pending}
-      className={`items-center rounded-lg px-4 py-3 disabled:opacity-50 ${style.box} ${className}`}
+      className={`items-center rounded-lg px-4 disabled:opacity-50 ${size === 'lg' ? 'py-4' : 'py-3'} ${style.box} ${className}`}
     >
       {pending ? (
         <ActivityIndicator color={spinner} />
       ) : (
-        <Text className={`text-base font-medium ${style.text}`}>{label}</Text>
+        <Text className={`font-medium ${size === 'lg' ? 'text-lg' : 'text-base'} ${style.text}`}>{label}</Text>
       )}
     </Pressable>
   )
@@ -193,12 +198,24 @@ export function RestLabel({ seconds }: { seconds: number }) {
 // Vignette d'un exercice : image sur toute la hauteur de la carte, ou une altère à défaut
 export function ExerciseThumb({ url }: { url: string | null }) {
   return (
-    <View className="w-20 items-center justify-center self-stretch bg-gray-100 dark:bg-zinc-800">
+    <View className="w-24 items-center justify-center self-stretch overflow-hidden bg-gray-100 dark:bg-zinc-800">
       {url ? (
-        <Image source={{ uri: url }} contentFit="cover" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+        <Image source={{ uri: url }} contentFit="contain" style={{ position: 'absolute', top: 0, right: '-16%', bottom: 0, left: '-16%' }} />
       ) : (
         <Ionicons name="barbell-outline" size={24} color="#94a3b8" />
       )}
+    </View>
+  )
+}
+
+// Barre de progression (0 à 100) ; « success » pour un repos terminé
+export function ProgressBar({ value, tone = 'accent' }: { value: number; tone?: 'accent' | 'success' }) {
+  return (
+    <View className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
+      <View
+        className={`h-full rounded-full ${tone === 'success' ? 'bg-green-600' : 'bg-blue-600'}`}
+        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+      />
     </View>
   )
 }

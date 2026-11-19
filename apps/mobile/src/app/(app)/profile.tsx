@@ -6,7 +6,7 @@ import { Modal, Pressable, Text, TextInput, useColorScheme, View } from 'react-n
 import { getBadges, getHistory, getHistoryTotals, getProfile, type BadgeStatus } from '@vigor/shared/queries'
 import { updateWeight } from '@vigor/shared/profile'
 
-import { Button, Card, ErrorBox, glassClass, inputClass, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
+import { Button, Card, ErrorBox, glassClass, glassSurface, inputClass, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
 import { useSession } from '@/lib/auth'
 import { badgeImage } from '@/lib/badges'
 import { supabase } from '@/lib/supabase'
@@ -182,9 +182,10 @@ function WeightCard({ initialWeight, onSaved }: { initialWeight: number | null; 
 }
 
 function BadgeImage({ code, size, unlocked }: { code: string; size: number; unlocked: boolean }) {
-  const source = badgeImage(code)
+  const source = badgeImage(code, unlocked)
   if (source) {
-    return <Image source={source} contentFit="contain" style={{ width: size, height: size, opacity: unlocked ? 1 : 0.6 }} />
+    // Badge verrouillé : version en niveaux de gris, comme sur le web
+    return <Image source={source} contentFit="contain" style={{ width: size, height: size }} />
   }
   // Pas d'image : une étoile
   return (
@@ -211,10 +212,19 @@ function BadgeCard({ badge }: { badge: BadgeStatus }) {
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityLabel={`Voir le badge ${badge.title} en grand`}
-        className={`flex-row items-start gap-3 p-4 ${glassClass} ${unlocked ? 'border-blue-600' : 'opacity-70'}`}
+        className={`flex-row items-start gap-3 p-4 ${glassSurface} ${
+          unlocked ? 'border-blue-600' : 'border-gray-200 opacity-60 dark:border-zinc-800'
+        }`}
+        // Badge débloqué : halo orange (elevation : l'ombre colorée d'Android)
         style={
           unlocked
-            ? { shadowColor: accent, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } }
+            ? {
+                shadowColor: accent,
+                shadowOpacity: 0.5,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 0 },
+                elevation: 8,
+              }
             : undefined
         }
       >
