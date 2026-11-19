@@ -10,7 +10,6 @@ type AdminUser = {
   created_at: string
   last_sign_in_at: string | null
   is_admin: boolean
-  weight_kg: number | null
   workout_count: number
 }
 

@@ -123,7 +123,8 @@ export default async function ProfilePage() {
         {history.length === 0 ? (
           <p className="text-sm text-gray-500">Aucune séance enregistrée pour l&apos;instant.</p>
         ) : (
-          <ul className="stagger space-y-3">
+          // Hauteur limitée : seul ce bloc défile, la page ne s'allonge pas avec le nombre de séances
+          <ul className="stagger max-h-[28rem] space-y-3 overflow-y-auto pr-1">
             {history.map((log) => (
               <li
                 key={log.id}

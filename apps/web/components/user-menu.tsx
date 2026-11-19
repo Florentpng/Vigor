@@ -27,6 +27,17 @@ function UserIcon() {
   )
 }
 
+// Pèse-personne
+function ScaleIcon() {
+  return (
+    <svg {...iconProps}>
+      <rect x="4" y="3" width="16" height="18" rx="3" />
+      <path d="M8.5 10a3.5 3.5 0 0 1 7 0z" />
+      <path d="M12 10V8M8 16h8" />
+    </svg>
+  )
+}
+
 function ShieldIcon() {
   return (
     <svg {...iconProps}>
@@ -125,6 +136,16 @@ export default function UserMenu({
             >
               <UserIcon />
               Profil
+            </Link>
+
+            <Link
+              href="/suivi"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={itemClass('/suivi', 'text-gray-700')}
+            >
+              <ScaleIcon />
+              Suivi
             </Link>
 
             {isAdmin && (
