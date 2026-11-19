@@ -1,12 +1,11 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import { Image } from 'expo-image'
 import { useState } from 'react'
-import { Modal, Pressable, Text, TextInput, useColorScheme, View } from 'react-native'
+import { Modal, Pressable, Text, useColorScheme, View } from 'react-native'
 
-import { getBadges, getHistory, getHistoryTotals, getProfile, type BadgeStatus } from '@vigor/shared/queries'
-import { updateWeight } from '@vigor/shared/profile'
+import { getBadges, getHistory, getHistoryTotals, type BadgeStatus } from '@vigor/shared/queries'
 
-import { Button, Card, ErrorBox, glassClass, glassSurface, inputClass, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
+import { Button, Card, ErrorBox, glassClass, glassSurface, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
 import { useSession } from '@/lib/auth'
 import { badgeImage } from '@/lib/badges'
 import { supabase } from '@/lib/supabase'
@@ -29,13 +28,12 @@ export default function ProfileScreen() {
   const flame = dark ? '#fb923c' : '#ea580c'
 
   const { data, loading, refreshing, refresh, error } = useFocusQuery(async () => {
-    const [profile, history, totals, badges] = await Promise.all([
-      getProfile(supabase, userId),
+    const [history, totals, badges] = await Promise.all([
       getHistory(supabase, userId),
       getHistoryTotals(supabase, userId),
       getBadges(supabase, userId),
     ])
-    return { profile, history, totals: totals.data, badges }
+    return { history, totals: totals.data, badges }
   })
 
   if (loading) return <Loading />
@@ -69,8 +67,6 @@ export default function ProfileScreen() {
           label="kcal brûlées"
         />
       </View>
-
-      <WeightCard key={data?.profile.weight_kg ?? 'none'} initialWeight={data?.profile.weight_kg ?? null} onSaved={refresh} />
 
       <View className="gap-3">
         <SectionTitle
@@ -135,48 +131,6 @@ function StatTile({ icon, value, label }: { icon: React.ReactNode; value: string
       {icon}
       <Text className="mt-1 font-display text-3xl text-gray-900 dark:text-white">{value}</Text>
       <Text className="text-center text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-zinc-400">{label}</Text>
-    </Card>
-  )
-}
-
-function WeightCard({ initialWeight, onSaved }: { initialWeight: number | null; onSaved: () => void }) {
-  const [value, setValue] = useState(initialWeight === null ? '' : String(initialWeight))
-  const [pending, setPending] = useState(false)
-  const [message, setMessage] = useState<{ type: 'error' | 'ok'; text: string } | null>(null)
-
-  async function save() {
-    setMessage(null)
-    setPending(true)
-    const result = await updateWeight(supabase, Number(value.replace(',', '.')))
-    setPending(false)
-    if ('error' in result) {
-      setMessage({ type: 'error', text: result.error })
-      return
-    }
-    setMessage({ type: 'ok', text: 'Poids enregistré.' })
-    onSaved()
-  }
-
-  return (
-    <Card>
-      <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-zinc-300">Poids (kg)</Text>
-      <View className="flex-row items-center gap-3">
-        <TextInput
-          className={`${inputClass} w-28`}
-          value={value}
-          onChangeText={setValue}
-          keyboardType="decimal-pad"
-          maxLength={6}
-          selectTextOnFocus
-        />
-        <Button label="Enregistrer" onPress={save} pending={pending} />
-      </View>
-      <Text className="mt-3 text-xs text-gray-500 dark:text-zinc-400">
-        Sert au calcul des calories brûlées pendant tes séances.
-      </Text>
-      {message ? (
-        <Text className={`mt-2 text-sm ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>{message.text}</Text>
-      ) : null}
     </Card>
   )
 }

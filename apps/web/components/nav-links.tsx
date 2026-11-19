@@ -9,6 +9,7 @@ const APP_LINKS: NavLink[] = [
   { href: '/', label: 'Accueil' },
   { href: '/workouts', label: 'Séances' },
   { href: '/planning', label: 'Planning' },
+  { href: '/suivi', label: 'Suivi' },
 ]
 
 export default function NavLinks({

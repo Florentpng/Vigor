@@ -4,7 +4,6 @@ import { Card } from '@/components/ui/card'
 import { DumbbellIcon, FlameIcon, TimerIcon } from '@/components/ui/icons'
 import { ProgressBar } from '@/components/ui/progress-bar'
 import { getBadges, getHistory, getHistoryTotals, getProfile } from '@vigor/shared/queries'
-import WeightForm from './weight-form'
 import ResetBadgesButton from './reset-badges-button'
 import BadgeCard from './badge-card'
 export const revalidate = 0
@@ -73,10 +72,6 @@ export default async function ProfilePage() {
           label="kcal brûlées"
         />
       </div>
-
-      <Card>
-        <WeightForm initialWeight={profile.weight_kg} />
-      </Card>
 
       <section>
         <div className="mb-3 flex items-center justify-between gap-3">

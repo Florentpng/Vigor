@@ -41,6 +41,10 @@ export default function AppLayout() {
         options={{ title: 'Planning', tabBarIcon: tabIcon('calendar', 'calendar-outline') }}
       />
       <Tabs.Screen
+        name="suivi"
+        options={{ title: 'Suivi', tabBarIcon: tabIcon('stats-chart', 'stats-chart-outline') }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{ title: 'Profil', tabBarIcon: tabIcon('person', 'person-outline') }}
       />

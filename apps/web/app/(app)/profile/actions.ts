@@ -10,12 +10,3 @@ export async function resetMyBadges(): Promise<ActionResult> {
   if ('ok' in result) revalidatePath('/profile')
   return result
 }
-
-export async function updateWeight(weightKg: number): Promise<ActionResult> {
-  const result = await profile.updateWeight(await createClient(), weightKg)
-  if ('ok' in result) {
-    revalidatePath('/profile')
-    revalidatePath('/')
-  }
-  return result
-}

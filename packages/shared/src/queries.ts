@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Exercise } from './types'
+import { getLatestWeight } from './weights'
 
 // Lectures communes au web et au mobile. La RLS décide de ce qui est lisible.
 
@@ -151,8 +152,12 @@ export async function getExercises(supabase: SupabaseClient): Promise<Query<Exer
 export type Profile = { weight_kg: number | null; is_admin: boolean }
 
 export async function getProfile(supabase: SupabaseClient, userId: string): Promise<Profile> {
-  const { data } = await supabase.from('profiles').select('weight_kg, is_admin').eq('id', userId).maybeSingle()
-  return { weight_kg: data?.weight_kg ?? null, is_admin: Boolean(data?.is_admin) }
+  const [{ data }, weight] = await Promise.all([
+    supabase.from('profiles').select('is_admin').eq('id', userId).maybeSingle(),
+    getLatestWeight(supabase, userId),
+  ])
+  // Le poids est celui de la dernière pesée (table weight_entries)
+  return { weight_kg: weight, is_admin: Boolean(data?.is_admin) }
 }
 
 export type HistoryEntry = {

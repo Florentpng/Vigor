@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { computeCalories } from './calories'
 import { getUserId, INVALID_WEIGHT, isValidWeight } from './result'
+import { getLatestWeight, getTodayDate, saveWeightEntry } from './weights'
 
 export type NewBadge = { code: string; title: string; description: string }
 
@@ -23,25 +24,15 @@ export async function saveWorkoutLog(supabase: SupabaseClient, input: LogInput):
     return { error: 'Durée invalide.' }
   }
 
-  // Poids : celui du profil, ou celui saisi à l'instant (et alors enregistré dans le profil)
+  // Poids : la dernière pesée, ou celui saisi à l'instant (et alors enregistré comme pesée du jour)
   let weightKg: number | null = null
   if (input.weightKg !== undefined) {
     if (!isValidWeight(input.weightKg)) return { error: INVALID_WEIGHT }
-    const { data: updated, error } = await supabase
-      .from('profiles')
-      .update({ weight_kg: input.weightKg })
-      .eq('id', userId)
-      .select('id')
-    if (error) return { error: error.message }
-    if (!updated?.length) return { error: 'Profil introuvable.' }
+    const saved = await saveWeightEntry(supabase, getTodayDate(), input.weightKg)
+    if ('error' in saved) return saved
     weightKg = input.weightKg
   } else {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('weight_kg')
-      .eq('id', userId)
-      .maybeSingle()
-    weightKg = profile?.weight_kg ?? null
+    weightKg = await getLatestWeight(supabase, userId)
   }
   if (weightKg === null) return { error: 'Renseigne ton poids pour calculer les calories.' }
 
