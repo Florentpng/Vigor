@@ -54,10 +54,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">Profil</h1>
-        <p className="mt-1 text-sm text-gray-600">{user?.email}</p>
-      </div>
+      <h1 className="text-4xl sm:text-5xl font-extrabold leading-none text-gray-900">Profil</h1>
 
       <div className="grid grid-cols-3 gap-3">
         <StatTile

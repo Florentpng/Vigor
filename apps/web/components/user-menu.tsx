@@ -114,7 +114,7 @@ export default function UserMenu({
       {open && (
         <div
           role="menu"
-          className="glass absolute right-0 z-20 mt-3 w-64 rounded-xl border border-blue-600/50 p-2 shadow-[0_0_24px_-6px] shadow-blue-600/60"
+          className="glass absolute right-0 z-20 mt-3 w-64 rounded-xl border p-2"
         >
           <div className="space-y-1 pl-2">
             <Link
