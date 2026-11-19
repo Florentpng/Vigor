@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavLinks from '@/components/nav-links'
 import UserMenu from '@/components/user-menu'
+import { userName } from '@/lib/user-name'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -36,7 +37,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <NavLinks className="hidden md:flex items-center gap-1" />
 
           <div className="justify-self-end col-start-3">
-            <UserMenu email={user.email ?? ''} isAdmin={Boolean(profile?.is_admin)} />
+            <UserMenu
+              email={user.email ?? ''}
+              name={userName(user.user_metadata)}
+              isAdmin={Boolean(profile?.is_admin)} />
           </div>
         </div>      </header>
 

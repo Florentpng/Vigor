@@ -4,6 +4,7 @@ import logo from '../icon.png'
 import { redirect } from 'next/navigation'
 import NavLinks, { type NavLink } from '@/components/nav-links'
 import UserMenu from '@/components/user-menu'
+import { userName } from '@/lib/user-name'
 import { createClient } from '@/lib/supabase/server'
 
 const ADMIN_LINKS: NavLink[] = [
@@ -66,7 +67,7 @@ export default async function AdminLayout({
 
           <div className="flex items-center gap-3">
             <NavLinks links={ADMIN_LINKS} className="hidden md:flex items-center" />
-            <UserMenu email={user.email ?? ''} isAdmin />
+            <UserMenu email={user.email ?? ''} name={userName(user.user_metadata)} isAdmin />
           </div>
         </div>      </header>
 
