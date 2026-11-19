@@ -66,7 +66,6 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
 
   const exerciseById = new Map(exercises.map((e) => [e.id, e]))
   const addedIds = new Set(items.map((i) => i.exercise_id))
-  const available = exercises.filter((e) => !addedIds.has(e.id))
 
   function addExercise(id: string) {
     // Valeurs par défaut de la table workout_exercises (comme le web)
@@ -162,6 +161,9 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
       <View className="gap-3">
         <Label>Exercices</Label>
 
+        <Button label="+ Ajouter des exercices" variant="secondary" onPress={() => setPickerOpen(true)} />
+        {exercises.length === 0 ? <Muted>Aucun exercice disponible.</Muted> : null}
+
         {items.length === 0 ? (
           <View className="rounded-lg border border-dashed border-gray-300 p-4 dark:border-zinc-700">
             <Text className="text-center text-sm text-gray-500 dark:text-zinc-400">Aucun exercice pour l&apos;instant.</Text>
@@ -196,8 +198,64 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
                   </View>
                 </View>
 
-                <View className="flex-row gap-3">
-                  <NumberField label="Séries" value={item.sets} onChange={(v) => updateItem(index, 'sets', v)} />
+                {/* Séries, répétitions et repos sur une seule ligne */}
+                <View className="flex-row items-start gap-2">
+                  <NumberField
+                    label="Séries"
+                    value={item.sets}
+                    onChange={(v) => updateItem(index, 'sets', v)}
+                    fieldWidth={FIELD_WIDTH}
+                  />
+
+                  <View>
+                    <Text className="mb-1 text-xs text-gray-600 dark:text-zinc-400">Répétitions</Text>
+                    {/* Champ des répétitions avec le bouton Max à l'intérieur, à droite */}
+                    <View
+                      className="h-12 flex-row items-center overflow-hidden rounded-lg border border-gray-300 bg-white dark:border-zinc-700 dark:bg-slate-900"
+                      style={{ width: FIELD_WIDTH + MAX_WIDTH }}
+                    >
+                      {item.reps === MAX_REPS ? (
+                        // « Max » remplace le nombre : le champ n'est plus modifiable
+                        <View
+                          className="h-full flex-1 items-center justify-center"
+                          accessibilityLabel="Répétitions : max, jusqu'à l'échec"
+                        >
+                          <Text className="text-sm font-bold text-blue-600">MAX</Text>
+                        </View>
+                      ) : (
+                        <TextInput
+                          className="h-full flex-1 p-0 text-center text-[16px] text-gray-900 dark:text-white"
+                          value={item.reps}
+                          // Chiffres uniquement
+                          onChangeText={(v) => updateItem(index, 'reps', v.replace(/[^0-9]/g, ''))}
+                          keyboardType="number-pad"
+                          selectTextOnFocus
+                          maxLength={4}
+                        />
+                      )}
+                      <Pressable
+                        onPress={() => toggleMax(index)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Max : jusqu'à l'échec"
+                        accessibilityState={{ selected: item.reps === MAX_REPS }}
+                        className={`h-full items-center justify-center border-l ${
+                          item.reps === MAX_REPS
+                            ? 'border-blue-600 bg-blue-600'
+                            : 'border-gray-300 active:bg-gray-100 dark:border-zinc-700 dark:active:bg-zinc-800'
+                        }`}
+                        style={{ width: MAX_WIDTH }}
+                      >
+                        <Text
+                          className={`text-xs font-bold ${
+                            item.reps === MAX_REPS ? 'text-white' : 'text-gray-700 dark:text-zinc-200'
+                          }`}
+                        >
+                          Max
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+
                   <NumberField
                     label="Repos (s)"
                     value={item.rest}
@@ -205,48 +263,11 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
                     hint={Number.isInteger(restSeconds) && restSeconds >= 60 ? `= ${formatRestTime(restSeconds)}` : undefined}
                   />
                 </View>
-
-                <View className="mt-3">
-                  <Text className="mb-1 text-xs text-gray-600 dark:text-zinc-400">Répétitions</Text>
-                  <View className="flex-row items-center gap-2">
-                    {item.reps === MAX_REPS ? (
-                      // « Max » remplace le nombre : le champ n'est plus modifiable
-                      <View
-                        className={`${inputClass} flex-1 items-center`}
-                        accessibilityLabel="Répétitions : max, jusqu'à l'échec"
-                      >
-                        <Text className="text-base font-bold text-blue-600">MAX</Text>
-                      </View>
-                    ) : (
-                      <TextInput
-                        className={`${inputClass} flex-1 text-center`}
-                        value={item.reps}
-                        // Chiffres uniquement
-                        onChangeText={(v) => updateItem(index, 'reps', v.replace(/[^0-9]/g, ''))}
-                        keyboardType="number-pad"
-                        selectTextOnFocus
-                        maxLength={4}
-                      />
-                    )}
-                    <Button
-                      label="Max"
-                      variant={item.reps === MAX_REPS ? 'primary' : 'secondary'}
-                      onPress={() => toggleMax(index)}
-                      accessibilityState={{ selected: item.reps === MAX_REPS }}
-                      className="px-5"
-                    />
-                  </View>
-                  {item.reps === MAX_REPS ? (
-                    <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">Jusqu&apos;à l&apos;échec</Text>
-                  ) : null}
-                </View>
               </Card>
             )
           })
         )}
 
-        <Button label="+ Ajouter des exercices" variant="secondary" onPress={() => setPickerOpen(true)} />
-        {exercises.length === 0 ? <Muted>Aucun exercice disponible.</Muted> : null}
       </View>
 
       <View className="flex-row gap-3 pt-2">
@@ -256,7 +277,8 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
 
       <ExercisePicker
         visible={pickerOpen}
-        exercises={available}
+        exercises={exercises}
+        addedIds={addedIds}
         onAdd={addExercise}
         onClose={() => setPickerOpen(false)}
       />
@@ -264,22 +286,29 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
   )
 }
 
+// Largeur des champs Séries et Répétitions (identique) ; le repos prend ce qui reste
+const FIELD_WIDTH = 64
+// Largeur du bouton Max, placé à l'intérieur du champ des répétitions
+const MAX_WIDTH = 52
+
 function NumberField({
   label,
   value,
   onChange,
   hint,
+  fieldWidth,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   hint?: string
+  fieldWidth?: number
 }) {
   return (
-    <View className="flex-1">
+    <View className={fieldWidth ? undefined : 'flex-1'} style={fieldWidth ? { width: fieldWidth } : undefined}>
       <Text className="mb-1 text-xs text-gray-600 dark:text-zinc-400">{label}</Text>
       <TextInput
-        className={`${inputClass} text-center`}
+        className={`${inputClass} h-12 py-0 text-center`}
         value={value}
         // Chiffres uniquement (le clavier numérique peut proposer d'autres caractères)
         onChangeText={(v) => onChange(v.replace(/[^0-9]/g, ''))}

@@ -17,8 +17,10 @@ import { useAccent } from '@/lib/theme'
 
 // Composants de base des écrans, alignés sur les classes Tailwind du web (mode sombre en zinc).
 
+// Taille de police en valeur libre (« text-base » ajoute une hauteur de ligne, qui décale le texte
+// par rapport au curseur et ne le centre pas dans un champ de saisie)
 export const inputClass =
-  'rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-900 dark:border-zinc-700 dark:bg-slate-900 dark:text-white'
+  'rounded-lg border border-gray-300 bg-white p-3 text-[16px] text-gray-900 dark:border-zinc-700 dark:bg-slate-900 dark:text-white'
 
 export function Label({ children }: PropsWithChildren) {
   return <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-zinc-300">{children}</Text>

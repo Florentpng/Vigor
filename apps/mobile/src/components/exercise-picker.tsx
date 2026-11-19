@@ -9,15 +9,16 @@ import { inputClass } from '@/components/ui'
 
 type Props = {
   visible: boolean
-  // Exercices pas encore ajoutés à la séance
+  // Tous les exercices ; ceux déjà dans la séance (addedIds) restent affichés mais grisés
   exercises: Exercise[]
+  addedIds: Set<string>
   onAdd: (exerciseId: string) => void
   onClose: () => void
 }
 
 // Feuille de choix des exercices : recherche par nom + filtre par muscle.
-// Toucher un exercice l'ajoute (il disparaît de la liste) ; on peut en ajouter plusieurs d'affilée.
-export default function ExercisePicker({ visible, exercises, onAdd, onClose }: Props) {
+// Toucher un exercice l'ajoute (il reste dans la liste, grisé et non sélectionnable) ; on peut en ajouter plusieurs d'affilée.
+export default function ExercisePicker({ visible, exercises, addedIds, onAdd, onClose }: Props) {
   const [search, setSearch] = useState('')
   const [muscle, setMuscle] = useState<string | null>(null)
 
@@ -66,25 +67,34 @@ export default function ExercisePicker({ visible, exercises, onAdd, onClose }: P
           contentContainerClassName="px-4 pb-8"
           ListEmptyComponent={
             <Text className="py-8 text-center text-sm text-gray-500 dark:text-zinc-400">
-              {exercises.length === 0 ? 'Tous les exercices sont déjà dans la séance.' : 'Aucun exercice trouvé.'}
+              Aucun exercice trouvé.
             </Text>
           }
-          renderItem={({ item, index }) => (
-            <Pressable
-              onPress={() => onAdd(item.id)}
-              className={`flex-row items-center justify-between gap-3 py-3 active:opacity-60 ${
-                index > 0 ? 'border-t border-gray-200 dark:border-zinc-800' : ''
-              }`}
-            >
-              <View className="shrink">
-                <Text className="font-medium text-gray-900 dark:text-white">{item.name}</Text>
-                <Text className="text-xs text-gray-500 dark:text-zinc-400">
-                  {item.muscle_group} · {item.equipment}
-                </Text>
-              </View>
-              <Text className="text-2xl font-light text-blue-600">+</Text>
-            </Pressable>
-          )}
+          renderItem={({ item, index }) => {
+            const added = addedIds.has(item.id)
+            return (
+              <Pressable
+                onPress={() => onAdd(item.id)}
+                disabled={added}
+                accessibilityState={{ disabled: added }}
+                className={`flex-row items-center justify-between gap-3 py-3 ${added ? 'opacity-40' : 'active:opacity-60'} ${
+                  index > 0 ? 'border-t border-gray-200 dark:border-zinc-800' : ''
+                }`}
+              >
+                <View className="shrink">
+                  <Text className="font-medium text-gray-900 dark:text-white">{item.name}</Text>
+                  <Text className="text-xs text-gray-500 dark:text-zinc-400">
+                    {item.muscle_group} · {item.equipment}
+                  </Text>
+                </View>
+                {added ? (
+                  <Text className="text-xs font-medium text-gray-500 dark:text-zinc-400">Ajouté</Text>
+                ) : (
+                  <Text className="text-2xl font-light text-blue-600">+</Text>
+                )}
+              </Pressable>
+            )
+          }}
         />
       </SafeAreaView>
     </Modal>
