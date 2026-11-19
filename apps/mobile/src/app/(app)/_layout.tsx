@@ -4,7 +4,8 @@ import type { ComponentProps } from 'react'
 import type { ColorValue } from 'react-native'
 
 import HeaderLogo from '@/components/header-logo'
-import { ACCENT } from '@/lib/theme'
+import SettingsButton from '@/components/settings-button'
+import { useAccent } from '@/lib/theme'
 
 type IconName = ComponentProps<typeof Ionicons>['name']
 
@@ -17,12 +18,17 @@ function tabIcon(active: IconName, inactive: IconName) {
 }
 
 export default function AppLayout() {
+  const accent = useAccent()
+
   return (
     <Tabs
       screenOptions={{
         headerTitle: () => <HeaderLogo />,
         headerTitleAlign: 'left',
-        tabBarActiveTintColor: ACCENT,
+        headerRight: () => <SettingsButton />,
+        tabBarActiveTintColor: accent,
+        // Fond transparent : la photo du fond reste visible derrière les écrans
+        sceneStyle: { backgroundColor: 'transparent' },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Accueil', tabBarIcon: tabIcon('home', 'home-outline') }} />

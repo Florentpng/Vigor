@@ -11,7 +11,11 @@ import BackLink from '@/components/back-link'
 import ExercisePicker from '@/components/exercise-picker'
 import { Button, Card, ErrorBox, inputClass, Label, Muted, Screen, Title } from '@/components/ui'
 
-type Item = { exercise_id: string; sets: string; reps: string; rest: string }
+// Valeur de `reps` quand le bouton « Max » est activé (jusqu'à l'échec)
+const MAX_REPS = 'max'
+
+// `lastReps` : dernier nombre saisi, rétabli quand on désactive « Max »
+type Item = { exercise_id: string; sets: string; reps: string; rest: string; lastReps?: string }
 
 type Props = {
   title: string
@@ -69,8 +73,20 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
     setItems((current) => [...current, { exercise_id: id, sets: '4', reps: '12', rest: '90' }])
   }
 
-  function updateItem(index: number, field: keyof Omit<Item, 'exercise_id'>, value: string) {
+  function updateItem(index: number, field: keyof Omit<Item, 'exercise_id' | 'lastReps'>, value: string) {
     setItems((current) => current.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
+  }
+
+  // Bouton « Max » : remplace le nombre de répétitions par MAX, et le rétablit au second appui
+  function toggleMax(index: number) {
+    setItems((current) =>
+      current.map((item, i) => {
+        if (i !== index) return item
+        return item.reps === MAX_REPS
+          ? { ...item, reps: item.lastReps ?? '12' }
+          : { ...item, reps: MAX_REPS, lastReps: item.reps }
+      })
+    )
   }
 
   function moveItem(index: number, direction: -1 | 1) {
@@ -182,13 +198,47 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
 
                 <View className="flex-row gap-3">
                   <NumberField label="Séries" value={item.sets} onChange={(v) => updateItem(index, 'sets', v)} />
-                  <NumberField label="Répétitions" value={item.reps} onChange={(v) => updateItem(index, 'reps', v)} />
                   <NumberField
                     label="Repos (s)"
                     value={item.rest}
                     onChange={(v) => updateItem(index, 'rest', v)}
                     hint={Number.isInteger(restSeconds) && restSeconds >= 60 ? `= ${formatRestTime(restSeconds)}` : undefined}
                   />
+                </View>
+
+                <View className="mt-3">
+                  <Text className="mb-1 text-xs text-gray-600 dark:text-zinc-400">Répétitions</Text>
+                  <View className="flex-row items-center gap-2">
+                    {item.reps === MAX_REPS ? (
+                      // « Max » remplace le nombre : le champ n'est plus modifiable
+                      <View
+                        className={`${inputClass} flex-1 items-center`}
+                        accessibilityLabel="Répétitions : max, jusqu'à l'échec"
+                      >
+                        <Text className="text-base font-bold text-blue-600">MAX</Text>
+                      </View>
+                    ) : (
+                      <TextInput
+                        className={`${inputClass} flex-1 text-center`}
+                        value={item.reps}
+                        // Chiffres uniquement
+                        onChangeText={(v) => updateItem(index, 'reps', v.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                        maxLength={4}
+                      />
+                    )}
+                    <Button
+                      label="Max"
+                      variant={item.reps === MAX_REPS ? 'primary' : 'secondary'}
+                      onPress={() => toggleMax(index)}
+                      accessibilityState={{ selected: item.reps === MAX_REPS }}
+                      className="px-5"
+                    />
+                  </View>
+                  {item.reps === MAX_REPS ? (
+                    <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">Jusqu&apos;à l&apos;échec</Text>
+                  ) : null}
                 </View>
               </Card>
             )

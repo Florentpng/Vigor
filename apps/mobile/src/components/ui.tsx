@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
+import { Image } from 'expo-image'
 import type { PropsWithChildren, ReactNode } from 'react'
 import {
   ActivityIndicator,
@@ -9,12 +11,14 @@ import {
   View,
 } from 'react-native'
 
-import { ACCENT } from '@/lib/theme'
+import { formatReps, formatRestTime } from '@vigor/shared/format'
+
+import { useAccent } from '@/lib/theme'
 
 // Composants de base des écrans, alignés sur les classes Tailwind du web (mode sombre en zinc).
 
 export const inputClass =
-  'rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white'
+  'rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-900 dark:border-zinc-700 dark:bg-slate-900 dark:text-white'
 
 export function Label({ children }: PropsWithChildren) {
   return <Text className="mb-1 text-sm font-medium text-gray-700 dark:text-zinc-300">{children}</Text>
@@ -27,9 +31,10 @@ type ScreenProps = PropsWithChildren<{
 
 // Fond de page défilant avec « tirer pour rafraîchir » optionnel
 export function Screen({ children, refreshing = false, onRefresh }: ScreenProps) {
+  const accent = useAccent()
   return (
     <ScrollView
-      className="flex-1 bg-gray-50 dark:bg-zinc-950"
+      className="flex-1"
       contentContainerClassName="gap-5 p-4 pb-10"
       keyboardShouldPersistTaps="handled"
       // iOS : décale le contenu sous l'en-tête transparent des piles (Séances), sinon il passe dessous
@@ -37,7 +42,7 @@ export function Screen({ children, refreshing = false, onRefresh }: ScreenProps)
       // iOS : le clavier ne masque pas le champ en cours de saisie
       automaticallyAdjustKeyboardInsets
       refreshControl={
-        onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} /> : undefined
+        onRefresh ? <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={accent} /> : undefined
       }
     >
       {children}
@@ -47,9 +52,10 @@ export function Screen({ children, refreshing = false, onRefresh }: ScreenProps)
 
 // Indicateur plein écran du premier chargement
 export function Loading() {
+  const accent = useAccent()
   return (
-    <View className="flex-1 items-center justify-center bg-gray-50 dark:bg-zinc-950">
-      <ActivityIndicator color={ACCENT} />
+    <View className="flex-1 items-center justify-center">
+      <ActivityIndicator color={accent} />
     </View>
   )
 }
@@ -57,7 +63,7 @@ export function Loading() {
 export function Title({ children, subtitle }: PropsWithChildren<{ subtitle?: ReactNode }>) {
   return (
     <View>
-      <Text className="text-2xl font-bold text-gray-900 dark:text-white">{children}</Text>
+      <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">{children}</Text>
       {subtitle ? <Text className="mt-1 text-sm text-gray-600 dark:text-zinc-400">{subtitle}</Text> : null}
     </View>
   )
@@ -66,13 +72,15 @@ export function Title({ children, subtitle }: PropsWithChildren<{ subtitle?: Rea
 export function SectionTitle({ children, right }: PropsWithChildren<{ right?: ReactNode }>) {
   return (
     <View className="flex-row items-center justify-between gap-3">
-      <Text className="text-lg font-semibold text-gray-800 dark:text-zinc-100">{children}</Text>
+      <Text className="font-display text-2xl text-gray-800 dark:text-zinc-100">{children}</Text>
       {right}
     </View>
   )
 }
 
-const cardClass = 'rounded-xl border border-gray-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900'
+// Carte très légèrement transparente : laisse deviner la photo de fond
+export const glassClass = 'rounded-xl border border-gray-200 bg-white/90 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80'
+const cardClass = `${glassClass} p-4`
 
 // Carte ; devient touchable si onPress est fourni
 export function Card({ children, onPress, className = '' }: PropsWithChildren<{ onPress?: () => void; className?: string }>) {
@@ -111,10 +119,10 @@ const buttonClasses = {
   secondary: {
     box: 'border border-gray-300 bg-white active:bg-gray-100 dark:border-zinc-700 dark:bg-zinc-900 dark:active:bg-zinc-800',
     text: 'text-gray-700 dark:text-zinc-200',
-    spinner: ACCENT,
+    spinner: '',
   },
   danger: { box: 'border border-red-300 bg-white active:bg-red-50 dark:border-red-900 dark:bg-zinc-900', text: 'text-red-600', spinner: '#dc2626' },
-} as const
+}
 
 type ButtonProps = Omit<PressableProps, 'children'> & {
   label: string
@@ -124,7 +132,9 @@ type ButtonProps = Omit<PressableProps, 'children'> & {
 }
 
 export function Button({ label, variant = 'primary', pending = false, disabled, className = '', ...props }: ButtonProps) {
+  const accent = useAccent()
   const style = buttonClasses[variant]
+  const spinner = style.spinner || accent
   return (
     <Pressable
       {...props}
@@ -132,10 +142,63 @@ export function Button({ label, variant = 'primary', pending = false, disabled, 
       className={`items-center rounded-lg px-4 py-3 disabled:opacity-50 ${style.box} ${className}`}
     >
       {pending ? (
-        <ActivityIndicator color={style.spinner} />
+        <ActivityIndicator color={spinner} />
       ) : (
         <Text className={`text-base font-medium ${style.text}`}>{label}</Text>
       )}
     </Pressable>
+  )
+}
+
+// Pastille de difficulté (Débutant, Intermédiaire, Avancé) : contour orange avec halo
+export function LevelBadge({ children, size = 'lg' }: PropsWithChildren<{ size?: 'sm' | 'lg' }>) {
+  const accent = useAccent()
+  const large = size === 'lg'
+  return (
+    <View
+      className={`self-start rounded-lg border-blue-600 bg-blue-50 ${large ? 'border-2 px-3 py-0.5' : 'border px-2 py-0.5'}`}
+      style={{ shadowColor: accent, shadowOpacity: 0.45, shadowRadius: large ? 8 : 5, shadowOffset: { width: 0, height: 0 } }}
+    >
+      <Text className={`font-display-sb text-blue-600 ${large ? 'text-xl' : 'text-base'}`}>{children}</Text>
+    </View>
+  )
+}
+
+// « 4 SÉRIES × 10 REPS » dans une pastille avec un chrono
+export function SetsPill({ sets, reps }: { sets: number; reps: number | null }) {
+  const accent = useAccent()
+  return (
+    <View className="flex-row items-center gap-1.5 self-start rounded-full border border-blue-600/40 bg-blue-50 px-3 py-1">
+      <Ionicons name="timer-outline" size={14} color={accent} />
+      <Text className="text-xs font-bold uppercase tracking-wide text-gray-900 dark:text-white">
+        {sets} séries × {formatReps(reps)} reps
+      </Text>
+    </View>
+  )
+}
+
+// « REPOS : 2 MIN » avec un sablier
+export function RestLabel({ seconds }: { seconds: number }) {
+  const accent = useAccent()
+  return (
+    <View className="flex-row items-center gap-1">
+      <Ionicons name="hourglass-outline" size={12} color={accent} />
+      <Text className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-zinc-400">
+        Repos : {formatRestTime(seconds)}
+      </Text>
+    </View>
+  )
+}
+
+// Vignette d'un exercice : image sur toute la hauteur de la carte, ou une altère à défaut
+export function ExerciseThumb({ url }: { url: string | null }) {
+  return (
+    <View className="w-20 items-center justify-center self-stretch bg-gray-100 dark:bg-zinc-800">
+      {url ? (
+        <Image source={{ uri: url }} contentFit="cover" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }} />
+      ) : (
+        <Ionicons name="barbell-outline" size={24} color="#94a3b8" />
+      )}
+    </View>
   )
 }

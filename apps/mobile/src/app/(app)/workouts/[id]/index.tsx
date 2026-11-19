@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Alert, Text, View } from 'react-native'
 
-import { formatReps, formatRestTime } from '@vigor/shared/format'
+import { parseWorkoutTitle } from '@vigor/shared/format'
 import { deleteMyWorkout } from '@vigor/shared/my-workouts'
 import { getWeeklyPlan } from '@vigor/shared/queries'
 import { getSessionWorkout } from '@vigor/shared/workouts'
@@ -10,7 +10,18 @@ import { getSessionWorkout } from '@vigor/shared/workouts'
 import BackLink from '@/components/back-link'
 import DaysPicker from '@/components/days-picker'
 import ExerciseMedia from '@/components/exercise-media'
-import { Button, Card, ErrorBox, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
+import {
+  Button,
+  ErrorBox,
+  glassClass,
+  LevelBadge,
+  Loading,
+  Muted,
+  RestLabel,
+  Screen,
+  SectionTitle,
+  SetsPill,
+} from '@/components/ui'
 import { useUserId } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { useFocusQuery } from '@/lib/use-focus-query'
@@ -37,6 +48,7 @@ export default function WorkoutDetailScreen() {
     )
   }
 
+  const { title, level } = parseWorkoutTitle(workout.name, workout.user_id)
   const isMine = workout.user_id !== null && workout.user_id === userId
   const plan = data?.plan ?? []
   const initialDays = plan.filter((r) => r.workout_id === id).map((r) => r.weekday)
@@ -69,7 +81,15 @@ export default function WorkoutDetailScreen() {
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <View className="gap-4">
         <BackLink label="Retour" fallback="/workouts" />
-        <Title subtitle={workout.description ?? undefined}>{workout.name}</Title>
+        <View>
+          <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
+            <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">{title}</Text>
+            {level ? <LevelBadge>{level}</LevelBadge> : null}
+          </View>
+          {workout.description ? (
+            <Text className="mt-3 text-gray-600 dark:text-zinc-400">{workout.description}</Text>
+          ) : null}
+        </View>
         <Button
           label="Faire cette séance maintenant"
           onPress={() => router.navigate({ pathname: '/', params: { workout: id } })}
@@ -102,37 +122,34 @@ export default function WorkoutDetailScreen() {
       ) : (
         <View className="gap-4">
           {workout.exercises.map((exercise, index) => (
-            <Card key={index}>
-              <View className="flex-row items-start justify-between gap-3">
-                <View className="shrink">
-                  <Text className="text-xs font-medium text-gray-400 dark:text-zinc-500">Exercice {index + 1}</Text>
-                  <Text className="font-semibold text-gray-900 dark:text-white">{exercise.name}</Text>
-                  {exercise.muscle_group ? (
-                    <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                      {exercise.muscle_group} · {exercise.equipment}
-                    </Text>
-                  ) : null}
-                </View>
-                <View className="items-end">
-                  <Text className="text-lg font-bold text-gray-900 dark:text-white">
-                    {exercise.target_sets} × {formatReps(exercise.target_reps)}
+            <View key={index} className={glassClass}>
+              <View className="p-4">
+                <Text className="text-xs font-medium text-gray-500 dark:text-zinc-400">
+                  Exercice {String(index + 1).padStart(2, '0')}
+                </Text>
+                <Text className="font-display text-2xl text-gray-900 dark:text-white">{exercise.name}</Text>
+                {exercise.muscle_group ? (
+                  <Text className="mt-0.5 text-xs text-gray-500 dark:text-zinc-400">
+                    {exercise.muscle_group} · {exercise.equipment}
                   </Text>
-                  <Text className="text-xs text-gray-500 dark:text-zinc-400">
-                    Repos {formatRestTime(exercise.rest_time)}
-                  </Text>
+                ) : null}
+
+                <View className="mt-3 gap-1.5">
+                  <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
+                  <RestLabel seconds={exercise.rest_time} />
                 </View>
+
+                {exercise.description ? (
+                  <Text className="mt-3 text-sm text-gray-600 dark:text-zinc-400">{exercise.description}</Text>
+                ) : null}
+
+                {exercise.video_url ? (
+                  <View className="mt-3">
+                    <ExerciseMedia url={exercise.video_url} name={exercise.name} />
+                  </View>
+                ) : null}
               </View>
-
-              {exercise.description ? (
-                <Text className="mt-3 text-sm text-gray-600 dark:text-zinc-400">{exercise.description}</Text>
-              ) : null}
-
-              {exercise.video_url ? (
-                <View className="mt-3">
-                  <ExerciseMedia url={exercise.video_url} name={exercise.name} />
-                </View>
-              ) : null}
-            </Card>
+            </View>
           ))}
         </View>
       )}

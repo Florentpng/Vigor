@@ -1,11 +1,13 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 
 import { WEEKDAYS } from '@vigor/shared/constants'
+import { parseWorkoutTitle } from '@vigor/shared/format'
 import { daysByWorkout, getWeeklyPlan, getWorkoutCards, type WorkoutCard } from '@vigor/shared/queries'
 
-import { Button, Card, Chip, ErrorBox, Loading, Muted, Screen, Title } from '@/components/ui'
+import { Button, Card, Chip, ErrorBox, LevelBadge, Loading, Muted, Screen, Title } from '@/components/ui'
 import { useUserId } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
 import { useFocusQuery } from '@/lib/use-focus-query'
@@ -99,16 +101,24 @@ export default function WorkoutsScreen() {
 }
 
 function WorkoutItem({ workout, days }: { workout: WorkoutCard; days: number[] }) {
+  const { title, level } = parseWorkoutTitle(workout.name, workout.user_id)
+
   return (
     <Card onPress={() => router.push(`/workouts/${workout.id}`)}>
-      <Text className="font-semibold text-gray-900 dark:text-white">{workout.name}</Text>
+      <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1">
+        <Text className="font-display-xb text-2xl uppercase leading-tight text-gray-900 dark:text-white">{title}</Text>
+        {level ? <LevelBadge size="sm">{level}</LevelBadge> : null}
+      </View>
       {workout.description ? (
         <Text className="mt-1 text-sm text-gray-600 dark:text-zinc-400">{workout.description}</Text>
       ) : null}
 
-      <Text className="mt-3 text-sm text-gray-500 dark:text-zinc-400">
-        {workout.exercise_count} exercice{workout.exercise_count > 1 ? 's' : ''}
-      </Text>
+      <View className="mt-3 flex-row items-center gap-1.5">
+        <Ionicons name="barbell-outline" size={16} color="#64748b" />
+        <Text className="text-sm text-gray-500 dark:text-zinc-400">
+          {workout.exercise_count} exercice{workout.exercise_count > 1 ? 's' : ''}
+        </Text>
+      </View>
 
       {workout.muscles.length > 0 ? (
         <View className="mt-2 flex-row flex-wrap gap-1.5">

@@ -15,6 +15,8 @@ import {
 
 import type { AuthResult } from '@vigor/shared/auth'
 
+import { inputClass } from '@/components/ui'
+
 type Props = {
   title: string
   submitLabel: string
@@ -24,9 +26,6 @@ type Props = {
   altHref: Href
   isSignup?: boolean
 }
-
-const inputClass =
-  'rounded-lg border border-gray-300 bg-white p-3 text-base text-gray-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white'
 
 export default function AuthForm({ title, submitLabel, action, altText, altLabel, altHref, isSignup }: Props) {
   const [email, setEmail] = useState('')
@@ -52,17 +51,16 @@ export default function AuthForm({ title, submitLabel, action, altText, altLabel
   return (
     <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        className="bg-gray-100 dark:bg-zinc-950"
         contentContainerClassName="flex-grow items-center justify-center gap-6 p-6"
         keyboardShouldPersistTaps="handled"
       >
         <View className="flex-row items-center gap-3">
-          <Image source={require('@/assets/images/logo-mark.png')} style={{ width: 59, height: 56 }} />
+          <Image source={require('@/assets/images/logo-v.png')} style={{ width: 96, height: 96 }} />
           <Text className="text-3xl font-bold tracking-wide text-gray-900 dark:text-white">Vigor</Text>
         </View>
 
-        <View className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 dark:border-zinc-800 dark:bg-zinc-900">
-          <Text className="mb-6 text-2xl font-bold text-gray-800 dark:text-white">{title}</Text>
+        <View className="w-full max-w-sm rounded-xl border border-gray-200 bg-white/90 p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/80">
+          <Text className="mb-6 font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">{title}</Text>
 
           {result && 'error' in result && (
             <Text className="mb-4 rounded-lg bg-red-100 p-3 text-sm text-red-700">{result.error}</Text>
