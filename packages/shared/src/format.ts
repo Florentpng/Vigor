@@ -1,3 +1,5 @@
+import { groupRest, groupSets, groupSupersets } from './supersets'
+
 // Jour de la semaine actuel, de 1 (lundi) à 7 (dimanche), à l'heure de Paris.
 export function getTodayWeekday(): number {
   const short = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Europe/Paris' }).format(
@@ -62,16 +64,17 @@ const SECONDS_PER_REP = 4
 // Nombre de répétitions retenu pour estimer une série « max »
 const ESTIMATED_MAX_REPS = 12
 
-// Durée estimée d'une séance : effort de chaque série + repos entre les séries
+// Durée estimée d'une séance : effort de chaque série + repos entre les tours
 // (comme dans le déroulé de la séance, il n'y a pas de repos après la toute dernière série).
+// Superset : un tour enchaîne tous les exercices du groupe, puis un seul repos (celui du dernier).
 export function estimateWorkoutSeconds(
-  exercises: { target_sets: number; target_reps: number | null; rest_time: number }[]
+  exercises: { target_sets: number; target_reps: number | null; rest_time: number; linked_to_previous?: boolean }[]
 ): number {
-  const total = exercises.reduce(
-    (sum, e) =>
-      sum + e.target_sets * ((e.target_reps ?? ESTIMATED_MAX_REPS) * SECONDS_PER_REP + e.rest_time),
-    0
-  )
-  const last = exercises[exercises.length - 1]
-  return last ? total - last.rest_time : 0
+  const groups = groupSupersets(exercises.map((e) => ({ ...e, linked_to_previous: Boolean(e.linked_to_previous) })))
+  const total = groups.reduce((sum, group) => {
+    const effort = group.reduce((s, e) => s + (e.target_reps ?? ESTIMATED_MAX_REPS) * SECONDS_PER_REP, 0)
+    return sum + groupSets(group) * (effort + groupRest(group))
+  }, 0)
+  const lastGroup = groups[groups.length - 1]
+  return lastGroup ? total - groupRest(lastGroup) : 0
 }

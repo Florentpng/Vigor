@@ -107,7 +107,8 @@ export function Muted({ children }: PropsWithChildren) {
 }
 
 const chipClasses = {
-  blue: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
+  // Les variables d'accent donnent déjà le bronze (clair) ou l'orange (sombre) : mêmes classes que le web
+  blue: 'bg-blue-100 text-blue-800',
   purple: 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300',
   accent: 'bg-blue-600 text-white',
 } as const
@@ -173,40 +174,42 @@ export function LevelBadge({ children, size = 'lg' }: PropsWithChildren<{ size?:
 }
 
 // « 4 SÉRIES × 10 REPS » dans une pastille avec un chrono ; `compact` : plus petite, pour tenir à côté du repos
-export function SetsPill({ sets, reps, compact = false }: { sets: number; reps: number | null; compact?: boolean }) {
-  const accent = useAccent()
+// `repsLabel` : texte à la place du nombre (superset : « 10 / 8 »)
+export function SetsPill({
+  sets,
+  reps,
+  compact = false,
+  repsLabel,
+}: {
+  sets: number
+  reps: number | null
+  compact?: boolean
+  repsLabel?: string
+}) {
   return (
     <View
       className={`shrink-0 flex-row items-center rounded-full border border-blue-600/40 bg-blue-50 ${
-        compact ? 'gap-1 px-2.5 py-1' : 'gap-1.5 px-3 py-1'
+        compact ? 'px-2.5 py-1' : 'px-3 py-1'
       }`}
     >
-      <Ionicons name="timer-outline" size={compact ? 12 : 14} color={accent} />
       <Text
         className={`font-bold uppercase text-gray-900 dark:text-white ${
           compact ? 'text-[11px] tracking-normal' : 'text-xs tracking-wide'
         }`}
       >
-        {sets} séries × {formatReps(reps)} reps
+        {sets} séries × {repsLabel ?? formatReps(reps)} reps
       </Text>
     </View>
   )
 }
 
 // « REPOS : 2 MIN » avec un sablier ; `compact` : reste sur une seule ligne (le texte rétrécit au besoin)
-export function RestLabel({ seconds, compact = false }: { seconds: number; compact?: boolean }) {
+export function RestLabel({ seconds }: { seconds: number; compact?: boolean }) {
   const accent = useAccent()
   return (
-    <View className={`flex-row items-center gap-1 ${compact ? 'shrink' : ''}`}>
+    <View className="flex-row items-center gap-1">
       <Ionicons name="hourglass-outline" size={12} color={accent} />
-      <Text
-        numberOfLines={compact ? 1 : undefined}
-        adjustsFontSizeToFit={compact}
-        minimumFontScale={0.7}
-        className={`shrink text-xs font-medium uppercase text-gray-500 dark:text-zinc-400 ${
-          compact ? 'tracking-normal' : 'tracking-wide'
-        }`}
-      >
+      <Text className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-zinc-400">
         Repos : {formatRestTime(seconds)}
       </Text>
     </View>
@@ -216,7 +219,7 @@ export function RestLabel({ seconds, compact = false }: { seconds: number; compa
 // Vignette d'un exercice : image sur toute la hauteur de la carte, ou une altère à défaut
 export function ExerciseThumb({ url }: { url: string | null }) {
   return (
-    <View className="w-24 items-center justify-center self-stretch overflow-hidden bg-gray-100 dark:bg-zinc-800">
+    <View className="w-24 items-center justify-center self-stretch overflow-hidden bg-[#f8fafc] dark:bg-[#0b0f19]">
       {url ? (
         <Image source={{ uri: url }} contentFit="contain" style={{ position: 'absolute', top: 0, right: '-16%', bottom: 0, left: '-16%' }} />
       ) : (

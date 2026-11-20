@@ -99,7 +99,7 @@ export async function getWorkoutCards(supabase: SupabaseClient): Promise<Query<W
 export type EditableWorkout = {
   name: string
   description: string
-  items: { exercise_id: string; sets: number; reps: number | null; rest: number }[]
+  items: { exercise_id: string; sets: number; reps: number | null; rest: number; linked: boolean }[]
 }
 
 type EditableRow = {
@@ -111,6 +111,7 @@ type EditableRow = {
     target_sets: number
     target_reps: number | null
     rest_time: number
+    linked_to_previous: boolean
   }[]
 }
 
@@ -122,7 +123,7 @@ export async function getEditableWorkout(
 ): Promise<EditableWorkout | null> {
   const { data } = await supabase
     .from('workouts')
-    .select('name, description, workout_exercises(exercise_id, order_index, target_sets, target_reps, rest_time)')
+    .select('name, description, workout_exercises(exercise_id, order_index, target_sets, target_reps, rest_time, linked_to_previous)')
     .eq('id', id)
     .eq('user_id', userId)
     .maybeSingle()
@@ -135,7 +136,13 @@ export async function getEditableWorkout(
     description: row.description ?? '',
     items: [...row.workout_exercises]
       .sort((a, b) => a.order_index - b.order_index)
-      .map((i) => ({ exercise_id: i.exercise_id, sets: i.target_sets, reps: i.target_reps, rest: i.rest_time })),
+      .map((i) => ({
+        exercise_id: i.exercise_id,
+        sets: i.target_sets,
+        reps: i.target_reps,
+        rest: i.rest_time,
+        linked: Boolean(i.linked_to_previous),
+      })),
   }
 }
 

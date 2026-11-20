@@ -1,11 +1,14 @@
+import { Fragment } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ButtonLink } from '@/components/ui/button'
 import { LevelBadge } from '@/components/ui/level-badge'
+import { LinkIcon } from '@/components/ui/icons'
 import { RestLabel, SetsPill } from '@/components/ui/sets-pill'
 import { parseWorkoutTitle } from '@vigor/shared/format'
 import { getWeeklyPlan } from '@vigor/shared/queries'
+import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import { getSessionWorkout } from '@vigor/shared/workouts'
 import DaysPicker from './days-picker'
 import DeleteMyWorkoutButton from './delete-button'
@@ -72,31 +75,44 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
           <p className="text-sm text-gray-500">Cette séance ne contient aucun exercice.</p>
         ) : (
           <ol className="stagger space-y-4">
-            {exercises.map((exercise, index) => {
+            {groupSupersets(exercises).map((block, b, blocks) => {
+              const start = blocks.slice(0, b).reduce((n, g) => n + g.length, 0)
+              const cards = block.map((exercise, i) => {
+              const index = start + i
               const isGif = exercise.video_url?.toLowerCase().endsWith('.gif')
 
               return (
-                <li key={index} className="glass border rounded-xl p-4 shadow-sm">
+                <li
+                  key={index}
+                  className={block.length === 1 ? 'glass border rounded-xl p-4 shadow-sm' : 'p-4'}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium text-gray-500">
-                        Exercice {String(index + 1).padStart(2, '0')}
-                      </p>
-                      <h3 className="text-xl font-bold text-gray-900">{exercise.name}</h3>
+                      <h3 className="text-xl font-bold text-gray-900">
+                        {String(index + 1).padStart(2, '0')}. {exercise.name}
+                      </h3>
                       {exercise.muscle_group && (
                         <p className="mt-1 text-xs text-gray-500">
                           {exercise.muscle_group} · {exercise.equipment}
                         </p>
                       )}
                     </div>
-                    <div className="shrink-0 flex flex-col items-end gap-1">
-                      <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
-                      <RestLabel seconds={exercise.rest_time} />
-                    </div>
+                    {block.length === 1 ? (
+                      <div className="shrink-0 flex flex-col items-center gap-1">
+                        <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
+                        <RestLabel seconds={exercise.rest_time} />
+                      </div>
+                    ) : i === 0 ? (
+                      // Superset : le premier exercice porte séries × répétitions et repos du groupe
+                      <div className="shrink-0 flex flex-col items-center gap-1">
+                        <SetsPill sets={groupSets(block)} reps={null} repsLabel={groupRepsLabel(block)} />
+                        <RestLabel seconds={groupRest(block)} />
+                      </div>
+                    ) : null}
                   </div>
 
                   {exercise.description && (
-                    <p className="mt-3 text-sm text-gray-600">{exercise.description}</p>
+                    <p className="mt-1.5 text-sm text-gray-600">{exercise.description}</p>
                   )}
 
                   {exercise.video_url &&
@@ -116,6 +132,33 @@ export default async function WorkoutDetailPage({ params }: { params: Promise<{ 
                         className="mt-3 max-h-56 rounded-lg border"
                       />
                     ))}
+                </li>
+              )
+              })
+
+              if (block.length === 1) return cards[0]
+
+              // Superset : un seul bloc, barre orange à gauche, et entre les exercices un trait avec une étiquette
+              return (
+                <li
+                  key={`superset-${b}`}
+                  className="glass overflow-hidden rounded-xl border border-l-4 border-l-blue-600 shadow-sm"
+                >
+                  <ol>
+                    {cards.map((card, i) => (
+                      <Fragment key={i}>
+                        {i > 0 && (
+                          <li aria-label="Superset avec l'exercice précédent" className="relative z-10 h-0 border-t">
+                            <span className="absolute left-1/2 top-0 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                              <LinkIcon className="h-3 w-3" />
+                              Superset
+                            </span>
+                          </li>
+                        )}
+                        {card}
+                      </Fragment>
+                    ))}
+                  </ol>
                 </li>
               )
             })}

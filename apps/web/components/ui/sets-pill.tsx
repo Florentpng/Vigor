@@ -2,11 +2,12 @@ import { formatReps, formatRestTime } from '@vigor/shared/format'
 import { HourglassIcon, TimerIcon } from './icons'
 
 // « 4 SÉRIES × 10 REPS » dans une pastille avec un chrono
-export function SetsPill({ sets, reps }: { sets: number; reps: number | null }) {
+// `repsLabel` : texte à la place du nombre (superset : « 10 / 8 »)
+export function SetsPill({ sets, reps, repsLabel }: { sets: number; reps: number | null; repsLabel?: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gray-900">
       <TimerIcon className="h-3.5 w-3.5 text-blue-600" />
-      {sets} séries × {formatReps(reps)} reps
+      {sets} séries × {repsLabel ?? formatReps(reps)} reps
     </span>
   )
 }

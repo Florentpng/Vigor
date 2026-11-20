@@ -16,6 +16,7 @@ type WorkoutWithItems = {
     target_sets: number
     target_reps: number | null
     rest_time: number
+    linked_to_previous: boolean
   }[]
 }
 
@@ -27,7 +28,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
     supabase
       .from('workouts')
       .select(
-        'id, name, description, workout_exercises(exercise_id, order_index, target_sets, target_reps, rest_time)'
+        'id, name, description, workout_exercises(exercise_id, order_index, target_sets, target_reps, rest_time, linked_to_previous)'
       )
       .eq('id', id)
       .is('user_id', null)
@@ -59,6 +60,7 @@ export default async function EditWorkoutPage({ params }: { params: Promise<{ id
             sets: i.target_sets,
             reps: i.target_reps,
             rest: i.rest_time,
+            linked: Boolean(i.linked_to_previous),
           })),
       }}
     />

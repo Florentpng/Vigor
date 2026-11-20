@@ -11,6 +11,7 @@ type Row = {
     target_sets: number
     target_reps: number | null
     rest_time: number
+    linked_to_previous: boolean
     exercises: {
       name: string
       description: string | null
@@ -30,7 +31,7 @@ export async function getSessionWorkout(
   const { data } = await supabase
     .from('workouts')
     .select(
-      'id, name, description, user_id, workout_exercises(order_index, target_sets, target_reps, rest_time, exercises(name, description, muscle_group, equipment, video_url, thumbnail_url))'
+      'id, name, description, user_id, workout_exercises(order_index, target_sets, target_reps, rest_time, linked_to_previous, exercises(name, description, muscle_group, equipment, video_url, thumbnail_url))'
     )
     .eq('id', id)
     .maybeSingle()
@@ -55,6 +56,7 @@ export async function getSessionWorkout(
         target_sets: item.target_sets,
         target_reps: item.target_reps,
         rest_time: item.rest_time,
+        linked_to_previous: Boolean(item.linked_to_previous),
       })),
   }
 }

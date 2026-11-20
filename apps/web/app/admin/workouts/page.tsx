@@ -15,6 +15,7 @@ type WorkoutRow = {
     target_sets: number
     target_reps: number | null
     rest_time: number
+    linked_to_previous: boolean
     exercises: { name: string; muscle_group: string; equipment: string } | null
   }[]
 }
@@ -27,7 +28,7 @@ export default async function AdminWorkoutsPage() {
   const { data, error } = await supabase
     .from('workouts')
     .select(
-      'id, name, description, workout_exercises(order_index, target_sets, target_reps, rest_time, exercises(name, muscle_group, equipment))'
+      'id, name, description, workout_exercises(order_index, target_sets, target_reps, rest_time, linked_to_previous, exercises(name, muscle_group, equipment))'
     )
     .is('user_id', null)
     .order('created_at', { ascending: false })
@@ -114,9 +115,23 @@ export default async function AdminWorkoutsPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                          {exercises.map((item, index) => (
-                            <tr key={index}>
-                              <td className="py-2 pr-4 text-gray-500">{index + 1}</td>
+                          {exercises.map((item, index) => {
+                            // Superset : l'exercice est lié au précédent, ou le suivant lui est lié
+                            const linked = Boolean(item.linked_to_previous)
+                            const nextLinked = Boolean(exercises[index + 1]?.linked_to_previous)
+                            const inSuperset = linked || nextLinked
+                            // Le repos est celui du dernier exercice du superset
+                            const hasRest = !nextLinked
+
+                            return (
+                            <tr key={index} className={inSuperset ? 'bg-blue-600/5' : undefined}>
+                              <td
+                                className={`py-2 pr-4 text-gray-500 ${
+                                  inSuperset ? 'border-l-4 border-blue-600 pl-2' : ''
+                                }`}
+                              >
+                                {index + 1}
+                              </td>
                               <td className="py-2 pr-4 font-medium text-gray-900">
                                 {item.exercises?.name ?? 'Exercice supprimé'}
                               </td>
@@ -128,9 +143,12 @@ export default async function AdminWorkoutsPage() {
                               </td>
                               <td className="py-2 pr-4 text-gray-600">{item.target_sets}</td>
                               <td className="py-2 pr-4 text-gray-600">{formatReps(item.target_reps)}</td>
-                              <td className="py-2 text-gray-600">{formatRestTime(item.rest_time)}</td>
+                              <td className="py-2 text-gray-600">
+                                {hasRest ? formatRestTime(item.rest_time) : '—'}
+                              </td>
                             </tr>
-                          ))}
+                            )
+                          })}
                         </tbody>
                       </table>
                     )}

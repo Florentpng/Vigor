@@ -13,6 +13,7 @@ import {
   parseWorkoutTitle,
 } from '@vigor/shared/format'
 import { saveWorkoutLog } from '@vigor/shared/logs'
+import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
 
 import ExerciseMedia from '@/components/exercise-media'
@@ -33,6 +34,9 @@ import { badgeImage } from '@/lib/badges'
 import { type StoredSession, useStoredSession, writeSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { useAccent } from '@/lib/theme'
+
+// Heure actuelle, lue dans les gestionnaires d'appui (pas pendant l'affichage)
+const clock = () => Date.now()
 
 type Props = {
   workout: SessionWorkout
@@ -67,7 +71,10 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
     if (restDone) Vibration.vibrate([0, 250, 120, 250])
   }, [restDone])
 
-  const total = workout.exercises.length
+  // Un superset est un seul bloc : ses exercices se font ensemble, tour après tour
+  const blocks = groupSupersets(workout.exercises)
+  const total = blocks.length
+  const exerciseCount = workout.exercises.length
 
   function start() {
     setNow(Date.now())
@@ -80,15 +87,15 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       startedAt: current.startedAt,
       index: current.index,
       setIndex: current.setIndex,
-      endedAt: Date.now(),
+      endedAt: clock(),
     })
   }
 
   // Série terminée : on passe à la suivante (ou à l'exercice suivant) et le repos démarre
   function completeSet() {
     if (!session) return
-    const exercise = workout.exercises[session.index]
-    const lastSet = session.setIndex + 1 >= exercise.target_sets
+    const block = blocks[session.index]
+    const lastSet = session.setIndex + 1 >= groupSets(block)
     const lastExercise = session.index + 1 >= total
 
     if (lastSet && lastExercise) {
@@ -101,13 +108,11 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       : { index: session.index, setIndex: session.setIndex + 1 }
     const base = { workoutId: session.workoutId, startedAt: session.startedAt, ...next }
 
-    const at = Date.now()
+    // Repos une seule fois par tour : après le dernier exercice du bloc
+    const rest = groupRest(block)
+    const at = clock()
     setNow(at)
-    writeSession(
-      exercise.rest_time > 0
-        ? { ...base, restEndsAt: at + exercise.rest_time * 1000, restSeconds: exercise.rest_time }
-        : base
-    )
+    writeSession(rest > 0 ? { ...base, restEndsAt: at + rest * 1000, restSeconds: rest } : base)
   }
 
   function endRest() {
@@ -264,9 +269,14 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   // --- Séance en cours ---
   if (session) {
     const index = Math.min(Math.max(session.index, 0), total - 1)
-    const exercise = workout.exercises[index]
-    const setNumber = Math.min(session.setIndex + 1, exercise.target_sets)
-    const isFinalSet = index === total - 1 && setNumber >= exercise.target_sets
+    const block = blocks[index]
+    const exercise = block[0]
+    const isSuperset = block.length > 1
+    const repsDiffer = new Set(block.map((e) => e.target_reps)).size > 1
+    const sets = groupSets(block)
+    const restSeconds = groupRest(block)
+    const setNumber = Math.min(session.setIndex + 1, sets)
+    const isFinalSet = index === total - 1 && setNumber >= sets
 
     const header = (
       <View className="gap-3">
@@ -276,7 +286,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               {workout.name}
             </Text>
             <Text className="text-sm font-medium text-gray-700 dark:text-zinc-300">
-              Exercice {index + 1} sur {total}
+              {isSuperset ? 'Superset' : 'Exercice'} {index + 1} sur {total}
             </Text>
           </View>
           <View className="flex-row items-center gap-2">
@@ -288,8 +298,8 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         </View>
 
         <View className="flex-row gap-1.5">
-          {workout.exercises.map((item, i) => {
-            const fill = i < index ? 100 : i === index ? (session.setIndex / item.target_sets) * 100 : 0
+          {blocks.map((item, i) => {
+            const fill = i < index ? 100 : i === index ? (session.setIndex / groupSets(item)) * 100 : 0
             return (
               <View key={i} className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-zinc-800">
                 <View className="h-full bg-blue-600" style={{ width: `${fill}%` }} />
@@ -343,13 +353,20 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             </View>
             <View className="items-center">
               <Text className="text-sm text-gray-600 dark:text-zinc-400">À suivre :</Text>
-              <Text className="text-center font-semibold text-gray-900 dark:text-white">{exercise.name}</Text>
-              <Text className="text-center text-sm text-gray-600 dark:text-zinc-400">
-                série {setNumber} sur {exercise.target_sets} ·{' '}
-                {exercise.target_reps === null
-                  ? 'max de répétitions (jusqu’à l’échec)'
-                  : `${exercise.target_reps} répétitions`}
+              <Text className="text-center font-semibold text-gray-900 dark:text-white">
+                {isSuperset ? `${joinNames(block)} en superset` : exercise.name}
               </Text>
+              <Text className="text-center text-sm text-gray-600 dark:text-zinc-400">
+                série {setNumber} sur {sets}
+                {isSuperset ? '' : ` · ${repsText(exercise)}`}
+              </Text>
+              {isSuperset
+                ? block.map((e, i) => (
+                    <Text key={i} className="text-center text-sm text-gray-600 dark:text-zinc-400">
+                      {e.name} : {repsText(e)}
+                    </Text>
+                  ))
+                : null}
             </View>
           </View>
 
@@ -370,52 +387,122 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       <Screen key="set">
         {header}
 
-        <View className={`gap-4 p-5 ${glassClass}`}>
-          <View>
-            <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">
-              {exercise.name}
-            </Text>
-            <Text className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-              {exercise.muscle_group} · {exercise.equipment}
-            </Text>
+        {isSuperset ? (
+          <View className={`gap-4 p-5 ${glassClass}`}>
+            <View className="gap-1">
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons name="link" size={16} color={accent} />
+                <Text className="text-xs font-bold uppercase tracking-wide text-blue-600">
+                  Superset · {block.length} exercices enchaînés
+                </Text>
+              </View>
+              <Text className="text-sm text-gray-600 dark:text-zinc-400">{joinNames(block)} en superset</Text>
+            </View>
+
+            <View className="gap-4">
+              {block.map((e, i) => (
+                <View key={i} className="gap-2 rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
+                  <View>
+                    <Text className="font-display-xb text-3xl uppercase leading-none text-gray-900 dark:text-white">
+                      {e.name}
+                    </Text>
+                    <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                      {e.muscle_group} · {e.equipment}
+                      {repsDiffer ? ` · ${e.target_reps === null ? 'max' : e.target_reps} reps` : ''}
+                    </Text>
+                  </View>
+
+                  {e.description ? (
+                    <Text className="text-sm text-gray-600 dark:text-zinc-400">{e.description}</Text>
+                  ) : null}
+
+                  <ExecutionToggle exercise={e} />
+                </View>
+              ))}
+            </View>
+
+            <View className="flex-row gap-3">
+              <View className="flex-1 items-center rounded-lg bg-blue-50 py-3">
+                <Text className="font-display text-4xl text-blue-700">
+                  {setNumber}
+                  <Text className="text-xl text-blue-400">/{sets}</Text>
+                </Text>
+                <Text className="text-xs text-blue-600">série</Text>
+              </View>
+              <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
+                <Text
+                  className="px-1 font-display text-4xl uppercase text-gray-900 dark:text-white"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {groupRepsLabel(block)}
+                </Text>
+                <Text className="text-xs text-gray-500 dark:text-zinc-400">
+                  {block.every((e) => e.target_reps === null) ? 'jusqu’à l’échec' : 'répétitions'}
+                </Text>
+              </View>
+              <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
+                <Text
+                  className="px-1 font-display text-4xl text-gray-900 dark:text-white"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {formatRestTime(restSeconds)}
+                </Text>
+                <Text className="text-xs text-gray-500 dark:text-zinc-400">repos</Text>
+              </View>
+            </View>
           </View>
+        ) : (
+          <View className={`gap-4 p-5 ${glassClass}`}>
+            <View>
+              <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">
+                {exercise.name}
+              </Text>
+              <Text className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+                {exercise.muscle_group} · {exercise.equipment}
+              </Text>
+            </View>
 
-          <View className="flex-row gap-3">
-            <View className="flex-1 items-center rounded-lg bg-blue-50 py-3">
-              <Text className="font-display text-4xl text-blue-700">
-                {setNumber}
-                <Text className="text-xl text-blue-400">/{exercise.target_sets}</Text>
-              </Text>
-              <Text className="text-xs text-blue-600">série</Text>
+            <View className="flex-row gap-3">
+              <View className="flex-1 items-center rounded-lg bg-blue-50 py-3">
+                <Text className="font-display text-4xl text-blue-700">
+                  {setNumber}
+                  <Text className="text-xl text-blue-400">/{sets}</Text>
+                </Text>
+                <Text className="text-xs text-blue-600">série</Text>
+              </View>
+              <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
+                <Text className="font-display text-4xl uppercase text-gray-900 dark:text-white">
+                  {formatReps(exercise.target_reps)}
+                </Text>
+                <Text className="text-xs text-gray-500 dark:text-zinc-400">
+                  {exercise.target_reps === null ? 'jusqu’à l’échec' : 'répétitions'}
+                </Text>
+              </View>
+              <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
+                {/* « 1 min 30 s » reste sur une seule ligne : le texte rétrécit au besoin */}
+                <Text
+                  className="px-1 font-display text-4xl text-gray-900 dark:text-white"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.5}
+                >
+                  {formatRestTime(restSeconds)}
+                </Text>
+                <Text className="text-xs text-gray-500 dark:text-zinc-400">repos</Text>
+              </View>
             </View>
-            <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
-              <Text className="font-display text-4xl uppercase text-gray-900 dark:text-white">
-                {formatReps(exercise.target_reps)}
-              </Text>
-              <Text className="text-xs text-gray-500 dark:text-zinc-400">
-                {exercise.target_reps === null ? 'jusqu’à l’échec' : 'répétitions'}
-              </Text>
-            </View>
-            <View className="flex-1 items-center rounded-lg bg-gray-50 py-3 dark:bg-zinc-800">
-              {/* « 1 min 30 s » reste sur une seule ligne : le texte rétrécit au besoin */}
-              <Text
-                className="px-1 font-display text-4xl text-gray-900 dark:text-white"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.5}
-              >
-                {formatRestTime(exercise.rest_time)}
-              </Text>
-              <Text className="text-xs text-gray-500 dark:text-zinc-400">repos</Text>
-            </View>
+
+            {exercise.description ? (
+              <Text className="text-sm text-gray-600 dark:text-zinc-400">{exercise.description}</Text>
+            ) : null}
+
+            <ExecutionToggle exercise={exercise} />
           </View>
-
-          {exercise.description ? (
-            <Text className="text-sm text-gray-600 dark:text-zinc-400">{exercise.description}</Text>
-          ) : null}
-
-          {exercise.video_url ? <ExerciseMedia url={exercise.video_url} name={exercise.name} /> : null}
-        </View>
+        )}
 
         <Button
           label={isFinalSet ? 'Dernière série · Finir la séance' : 'Série terminée'}
@@ -437,7 +524,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             disabled={index === total - 1}
             className="py-1 disabled:opacity-30 active:opacity-60"
           >
-            <Text className="text-sm text-gray-600 dark:text-zinc-300">Passer cet exercice →</Text>
+            <Text className="text-sm text-gray-600 dark:text-zinc-300">
+              {isSuperset ? 'Passer ce superset →' : 'Passer cet exercice →'}
+            </Text>
           </Pressable>
         </View>
 
@@ -479,7 +568,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             <View className="flex-row items-center gap-1.5">
               <Ionicons name="barbell-outline" size={20} color="#64748b" />
               <Text className="text-sm text-gray-600 dark:text-zinc-400">
-                {total} exercice{total > 1 ? 's' : ''}
+                {exerciseCount} exercice{exerciseCount > 1 ? 's' : ''}
               </Text>
             </View>
           </View>
@@ -502,9 +591,14 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         <Text className="text-sm text-gray-500 dark:text-zinc-400">Cette séance ne contient aucun exercice.</Text>
       ) : (
         <View className="gap-3">
-          {workout.exercises.map((exercise, i) => (
-            <ExerciseRow key={i} exercise={exercise} position={i + 1} />
-          ))}
+          {blocks.map((block, b) => {
+            const start = blocks.slice(0, b).reduce((n, g) => n + g.length, 0)
+            return block.length === 1 ? (
+              <ExerciseRow key={b} exercise={block[0]} position={start + 1} />
+            ) : (
+              <SupersetGroup key={b} block={block} start={start} />
+            )
+          })}
         </View>
       )}
 
@@ -525,49 +619,155 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
 }
 
 // Carte d'un exercice de l'aperçu : vignette, nom, séries ; un appui déplie la description et le média
-function ExerciseRow({ exercise, position }: { exercise: SessionExercise; position: number }) {
+function ExerciseRow({
+  exercise,
+  position,
+  bare = false,
+  group,
+}: {
+  exercise: SessionExercise
+  position: number
+  // Dans un bloc superset : pas de cadre
+  bare?: boolean
+  // Premier exercice d'un superset : la pastille et le repos sont ceux du groupe, comme un exercice normal
+  group?: SessionExercise[]
+}) {
   const [open, setOpen] = useState(false)
   const dark = useColorScheme() === 'dark'
 
   return (
-    <View className={`overflow-hidden ${glassClass}`}>
+    <View className={bare ? 'overflow-hidden' : `overflow-hidden ${glassClass}`}>
       <Pressable
         onPress={() => setOpen((value) => !value)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        className="flex-row items-center active:bg-gray-100 dark:active:bg-zinc-800"
+        className={`flex-row items-center active:bg-gray-100 dark:active:bg-zinc-800 ${bare ? 'min-h-[88px]' : ''}`}
       >
         <ExerciseThumb url={exercise.thumbnail_url} />
-        <View className="shrink flex-1 gap-1.5 px-3 py-4">
-          <Text className="pr-5 text-base font-semibold text-gray-900 dark:text-white">
+        <View className="shrink flex-1 gap-1.5 px-3 pb-7 pt-2">
+          <Text className="text-base font-semibold text-gray-900 dark:text-white">
             {String(position).padStart(2, '0')}. {exercise.name}
           </Text>
           {/* Série et repos sur la même ligne */}
-          <View className="flex-row items-center gap-x-2">
-            <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} compact />
-            <RestLabel seconds={exercise.rest_time} compact />
-          </View>
+          {group ? (
+            <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+              <SetsPill sets={groupSets(group)} reps={null} repsLabel={groupRepsLabel(group)} compact />
+              <RestLabel seconds={groupRest(group)} compact />
+            </View>
+          ) : bare ? null : (
+            <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
+              <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} compact />
+              <RestLabel seconds={exercise.rest_time} compact />
+            </View>
+          )}
         </View>
         {/* Flèche dans le coin : elle ne prend plus de place à côté du texte */}
-        <Ionicons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={dark ? '#8b9bb0' : '#94a3b8'}
-          style={{ position: 'absolute', top: 14, right: 12 }}
-        />
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 8, right: 12 }}>
+          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={dark ? '#8b9bb0' : '#94a3b8'} />
+        </View>
       </Pressable>
 
       {open ? (
-        <View className="gap-3 border-t border-gray-200 bg-gray-50 px-4 py-4 dark:border-zinc-800 dark:bg-zinc-950/40">
-          <Text className="text-xs text-gray-500 dark:text-zinc-400">
-            {exercise.muscle_group} · {exercise.equipment}
-          </Text>
-          <Text className="text-sm text-gray-600 dark:text-zinc-400">
-            {exercise.description ?? 'Pas de description pour cet exercice.'}
-          </Text>
-          {exercise.video_url ? <ExerciseMedia url={exercise.video_url} name={exercise.name} /> : null}
-        </View>
+        <DetailsPanel exercise={exercise} />
       ) : null}
     </View>
   )
+}
+
+// Un superset dans l'aperçu : un seul bloc. Les exercices sont au-dessus, puis séries, répétitions et repos une seule fois.
+function SupersetGroup({ block, start }: { block: SessionExercise[]; start: number }) {
+  return (
+    <View className={`overflow-hidden ${glassClass}`}>
+      <View className="absolute bottom-0 left-0 top-0 z-10 w-1 bg-blue-600" />
+      {/* Le premier exercice porte séries × répétitions et repos ; « SUPERSET » est entre les exercices */}
+      <View>
+        {block.map((exercise, i) => (
+          <View key={i}>
+            {i > 0 ? (
+              // Simple trait entre les deux exercices, avec une petite étiquette posée dessus
+              <View className="h-px bg-gray-200 dark:bg-zinc-800" style={{ zIndex: 10, overflow: 'visible' }}>
+                <View className="absolute left-0 right-0 items-center" style={{ top: -9 }} pointerEvents="none">
+                  <View className="flex-row items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5">
+                    <Ionicons name="link" size={11} color="#ffffff" />
+                    <Text className="text-[10px] font-bold uppercase tracking-wide text-white">Superset</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+            <ExerciseRow exercise={exercise} position={start + i + 1} bare group={i === 0 ? block : undefined} />
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+// Description d'un exercice (aperçu) : en haut à droite, un bouton vidéo ; sans vidéo, la mention « Pas de vidéo »
+function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
+  const accent = useAccent()
+  const [showVideo, setShowVideo] = useState(false)
+  return (
+    <View className="gap-3 border-t border-gray-200 bg-[#f8fafc] px-4 py-4 dark:border-zinc-800 dark:bg-[#0b0f19]">
+      <View className="flex-row items-start justify-between gap-3">
+        <Text className="shrink flex-1 text-xs text-gray-500 dark:text-zinc-400">
+          {exercise.muscle_group} · {exercise.equipment}
+        </Text>
+        {exercise.video_url ? (
+          <Pressable
+            onPress={() => setShowVideo((value) => !value)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showVideo }}
+            className="flex-row items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 active:opacity-60"
+          >
+            <Ionicons name="videocam-outline" size={16} color={accent} />
+            <Text className="text-xs font-semibold text-blue-700">{showVideo ? 'Masquer la vidéo' : 'Vidéo'}</Text>
+          </Pressable>
+        ) : (
+          <View
+            accessibilityRole="button"
+            accessibilityLabel="Pas de vidéo"
+            accessibilityState={{ disabled: true }}
+            className="flex-row items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800"
+          >
+            <Ionicons name="videocam-off-outline" size={16} color="#94a3b8" />
+          </View>
+        )}
+      </View>
+      <Text className="text-sm text-gray-600 dark:text-zinc-400">
+        {exercise.description ?? 'Pas de description pour cet exercice.'}
+      </Text>
+      {showVideo && exercise.video_url ? <ExerciseMedia url={exercise.video_url} name={exercise.name} /> : null}
+    </View>
+  )
+}
+
+// Petit bouton qui affiche ou masque l'exécution (image ou vidéo) de l'exercice
+function ExecutionToggle({ exercise }: { exercise: SessionExercise }) {
+  const accent = useAccent()
+  const [open, setOpen] = useState(false)
+  if (!exercise.video_url) return null
+  return (
+    <View className="gap-3">
+      <Pressable
+        onPress={() => setOpen((value) => !value)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        className="flex-row items-center gap-1.5 self-start rounded-full border border-blue-600/40 bg-blue-50 px-3 py-1.5 active:opacity-60"
+      >
+        <Ionicons name={open ? 'eye-off-outline' : 'play-circle-outline'} size={16} color={accent} />
+        <Text className="text-xs font-semibold text-blue-700">{open ? 'Masquer l’exécution' : 'Voir l’exécution'}</Text>
+      </Pressable>
+      {open ? <ExerciseMedia url={exercise.video_url} name={exercise.name} /> : null}
+    </View>
+  )
+}
+
+// « Pompes, Dips et Curl » : les noms du bloc, séparés par des virgules puis « et »
+function joinNames(block: SessionExercise[]): string {
+  const names = block.map((e) => e.name)
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}`
+}
+
+function repsText(exercise: SessionExercise): string {
+  return exercise.target_reps === null ? 'max de répétitions (jusqu’à l’échec)' : `${exercise.target_reps} répétitions`
 }

@@ -16,6 +16,8 @@ type Item = {
   sets: string
   reps: string
   rest: string
+  // enchaîné avec l'exercice précédent (superset)
+  linked: boolean
   // dernier nombre saisi, rétabli quand on désactive « Max »
   lastReps?: string
 }
@@ -23,7 +25,7 @@ type Item = {
 export type WorkoutFormInitial = {
   name: string
   description: string
-  items: { exercise_id: string; sets: number; reps: number | null; rest: number }[]
+  items: { exercise_id: string; sets: number; reps: number | null; rest: number; linked: boolean }[]
 }
 
 type Props = {
@@ -39,6 +41,33 @@ type Props = {
 
 const inputClass =
   'w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none'
+
+// Début et fin (indices inclus) du superset qui contient l'exercice `index` ; un exercice seul : [index, index]
+function groupRange(items: { linked: boolean }[], index: number): [number, number] {
+  let from = index
+  while (from > 0 && items[from].linked) from--
+  let to = index
+  while (to + 1 < items.length && items[to + 1].linked) to++
+  return [from, to]
+}
+
+function LinkIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="h-4 w-4"
+    >
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
+    </svg>
+  )
+}
 
 export default function WorkoutForm({
   exercises,
@@ -60,6 +89,7 @@ export default function WorkoutForm({
       sets: String(i.sets),
       reps: formatReps(i.reps),
       rest: String(i.rest),
+      linked: i.linked,
     }))
   )
 
@@ -75,16 +105,28 @@ export default function WorkoutForm({
   const addExercise = () => {
     if (!selected) return
     // Valeurs par défaut de la table workout_exercises.
-    setItems([...items, { exercise_id: selected, sets: '4', reps: '12', rest: '90' }])
+    setItems([...items, { exercise_id: selected, sets: '4', reps: '12', rest: '90', linked: false }])
     setSelected('')
   }
 
-  const updateItem = (
-    index: number,
-    field: keyof Omit<Item, 'exercise_id' | 'lastReps'>,
-    value: string
-  ) => {
-    setItems(items.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
+  const updateItem = (index: number, field: 'sets' | 'reps' | 'rest', value: string) => {
+    // Les exercices d'un superset ont tous le même nombre de séries : on le change pour tout le groupe
+    const [from, to] = field === 'sets' ? groupRange(items, index) : [index, index]
+    setItems(items.map((item, i) => (i >= from && i <= to ? { ...item, [field]: value } : item)))
+  }
+
+  // Lie l'exercice au précédent (ou délie) ; lié, il prend le nombre de séries du précédent
+  const toggleLink = (index: number) => {
+    if (index === 0) return
+    const linking = !items[index].linked
+    const next = items.map((item, i) => (i === index ? { ...item, linked: linking } : item))
+    if (!linking) {
+      setItems(next)
+      return
+    }
+    const [from, to] = groupRange(next, index)
+    const sets = next[from].sets
+    setItems(next.map((item, i) => (i >= from && i <= to ? { ...item, sets } : item)))
   }
 
   // Bouton « Max » : remplace le nombre de répétitions par MAX, et le rétablit au second clic
@@ -104,10 +146,19 @@ export default function WorkoutForm({
     if (target < 0 || target >= items.length) return
     const next = [...items]
     ;[next[index], next[target]] = [next[target], next[index]]
+    // Déplacer un exercice défait les supersets qui l'entourent (liens des deux exercices échangés et du suivant)
+    const low = Math.min(index, target)
+    for (let i = low; i <= Math.min(low + 2, next.length - 1); i++) next[i] = { ...next[i], linked: false }
     setItems(next)
   }
 
-  const removeItem = (index: number) => setItems(items.filter((_, i) => i !== index))
+  const removeItem = (index: number) => {
+    const next = items.filter((_, i) => i !== index)
+    // Le suivant, lié à l'exercice retiré, ne doit pas se retrouver lié à un autre groupe
+    if (next[index] && !items[index].linked) next[index] = { ...next[index], linked: false }
+    if (next[0]) next[0] = { ...next[0], linked: false }
+    setItems(next)
+  }
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -116,7 +167,7 @@ export default function WorkoutForm({
     const input: WorkoutInput = {
       name,
       description,
-      exercises: items.map((i) => {
+      exercises: items.map((i, position) => {
         // « max » -> null ; une saisie invalide -> NaN, que la validation refuse
         const reps = parseRepsInput(i.reps)
 
@@ -125,6 +176,7 @@ export default function WorkoutForm({
           target_sets: Number(i.sets),
           target_reps: reps === undefined ? NaN : reps,
           rest_time: Number(i.rest),
+          linked_to_previous: position > 0 && i.linked,
         }
       }),
     }
@@ -228,9 +280,37 @@ export default function WorkoutForm({
             {items.map((item, index) => {
               const exercise = exerciseById.get(item.exercise_id)
               const restSeconds = Number(item.rest)
+              const [groupFrom, groupTo] = groupRange(items, index)
+              const inGroup = groupTo > groupFrom
+              // Dans un superset, seul le dernier exercice a un repos (après le tour complet)
+              const hasRest = !inGroup || index === groupTo
 
               return (
-                <li key={item.exercise_id} className="border rounded-lg p-3 bg-gray-50">
+                <li key={item.exercise_id}>
+                  {index > 0 && (
+                    <div className="flex justify-center pb-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleLink(index)}
+                        aria-pressed={item.linked}
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold cursor-pointer transition ${
+                          item.linked
+                            ? 'border-blue-600 bg-blue-600/15 text-blue-600'
+                            : 'text-gray-500 hover:border-blue-600 hover:text-blue-600'
+                        }`}
+                      >
+                        <LinkIcon />
+                        {item.linked
+                          ? 'Superset avec le précédent · délier'
+                          : 'Lier en superset avec le précédent'}
+                      </button>
+                    </div>
+                  )}
+                  <div
+                    className={`border rounded-lg p-3 bg-gray-50 ${
+                      inGroup ? 'border-l-4 border-l-blue-600' : ''
+                    }`}
+                  >
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <p className="font-medium text-gray-900 text-sm">
                       {index + 1}. {exercise?.name ?? 'Exercice introuvable'}
@@ -319,23 +399,33 @@ export default function WorkoutForm({
                         <span className="block mt-1 text-gray-500">Jusqu&apos;à l&apos;échec</span>
                       )}
                     </div>
-                    <label className="text-xs text-gray-600">
-                      Repos (secondes)
-                      <input
-                        type="number"
-                        min={0}
-                        step={5}
-                        required
-                        value={item.rest}
-                        onChange={(e) => updateItem(index, 'rest', e.target.value)}
-                        className={`${inputClass} mt-1`}
-                      />
-                      {Number.isInteger(restSeconds) && restSeconds >= 60 && (
-                        <span className="block mt-1 text-gray-500">
-                          = {formatRestTime(restSeconds)}
-                        </span>
-                      )}
-                    </label>
+                    {hasRest ? (
+                      <label className="text-xs text-gray-600">
+                        Repos (secondes)
+                        <input
+                          type="number"
+                          min={0}
+                          step={5}
+                          required
+                          value={item.rest}
+                          onChange={(e) => updateItem(index, 'rest', e.target.value)}
+                          className={`${inputClass} mt-1`}
+                        />
+                        {Number.isInteger(restSeconds) && restSeconds >= 60 && (
+                          <span className="block mt-1 text-gray-500">
+                            = {formatRestTime(restSeconds)}
+                          </span>
+                        )}
+                      </label>
+                    ) : (
+                      <div className="text-xs text-gray-600">
+                        Repos
+                        <p className="mt-1 flex h-[38px] items-center text-gray-500">
+                          Aucun : enchaîné avec la suite
+                        </p>
+                      </div>
+                    )}
+                  </div>
                   </div>
                 </li>
               )

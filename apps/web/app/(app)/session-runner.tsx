@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useSyncExternalStore, useTransition } from 'react'
+import { Fragment, useEffect, useMemo, useState, useSyncExternalStore, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { badgeImageSrc } from '@/lib/badges'
@@ -10,7 +10,10 @@ import {
   DumbbellIcon,
   FlameIcon,
   HourglassIcon,
+  LinkIcon,
   TimerIcon,
+  VideoIcon,
+  VideoOffIcon,
 } from '@/components/ui/icons'
 import { Input, Label } from '@/components/ui/input'
 import { LevelBadge } from '@/components/ui/level-badge'
@@ -25,6 +28,7 @@ import {
   formatRestTime,
   parseWorkoutTitle,
 } from '@vigor/shared/format'
+import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
 import { saveWorkoutLog } from './actions'
 
@@ -101,6 +105,82 @@ function parseSession(raw: string | null): StoredSession | null {
   }
 }
 
+// Description d'un exercice (aperçu) : en haut à droite, un bouton vidéo ; sans vidéo, la mention « Pas de vidéo »
+function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
+  const [showVideo, setShowVideo] = useState(false)
+  return (
+    <div className="bg-gray-50 border-t px-4 py-4 space-y-3 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-xs text-gray-500">
+          {exercise.muscle_group} · {exercise.equipment}
+        </p>
+        {exercise.video_url ? (
+          <button
+            type="button"
+            onClick={() => setShowVideo((value) => !value)}
+            aria-expanded={showVideo}
+            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+          >
+            <VideoIcon className="h-4 w-4" />
+            {showVideo ? 'Masquer la vidéo' : 'Vidéo'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled
+            aria-label="Pas de vidéo"
+            title="Pas de vidéo"
+            className="inline-flex shrink-0 cursor-not-allowed items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-gray-400"
+          >
+            <VideoOffIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      {exercise.description ? (
+        <p className="text-gray-600">{exercise.description}</p>
+      ) : (
+        <p className="text-gray-500">Pas de description pour cet exercice.</p>
+      )}
+      {showVideo && <ExerciseMedia exercise={exercise} />}
+    </div>
+  )
+}
+
+// Petit bouton qui affiche ou masque l'exécution (image ou vidéo) de l'exercice
+function ExecutionToggle({ exercise }: { exercise: SessionExercise }) {
+  const [open, setOpen] = useState(false)
+  if (!exercise.video_url) return null
+  return (
+    <div className="space-y-3">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className="h-4 w-4"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M10 8.5v7l6-3.5z" />
+        </svg>
+        {open ? 'Masquer l’exécution' : 'Voir l’exécution'}
+      </button>
+      {open && <ExerciseMedia exercise={exercise} />}
+    </div>
+  )
+}
+
+// Heure actuelle, lue dans les gestionnaires de clic (pas pendant l'affichage)
+const clock = () => Date.now()
+
 function ExerciseMedia({ exercise }: { exercise: SessionExercise }) {
   if (!exercise.video_url) return null
 
@@ -127,7 +207,7 @@ function ExerciseMedia({ exercise }: { exercise: SessionExercise }) {
 function ExerciseThumb({ exercise }: { exercise: SessionExercise }) {
   // Panneau collé au bord gauche de la carte, sur toute sa hauteur. L'image est en position
   // absolue : elle remplit le panneau sans agrandir la ligne (les bords peuvent être rognés).
-  const panel = 'relative w-20 sm:w-[6.5rem] shrink-0 self-stretch bg-gray-100'
+  const panel = 'relative w-20 sm:w-[6.5rem] shrink-0 self-stretch overflow-hidden bg-gray-100'
 
   if (exercise.thumbnail_url) {
     return (
@@ -180,7 +260,10 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
     if (restDone && 'vibrate' in navigator) navigator.vibrate([250, 120, 250])
   }, [restDone])
 
-  const total = workout.exercises.length
+  // Un superset est un seul bloc : ses exercices se font ensemble, tour après tour
+  const blocks = groupSupersets(workout.exercises)
+  const total = blocks.length
+  const exerciseCount = workout.exercises.length
 
   const start = () => {
     setNow(Date.now())
@@ -188,14 +271,14 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   }
 
   const finish = (current: StoredSession) => {
-    writeSession({ workoutId: current.workoutId, startedAt: current.startedAt, index: current.index, setIndex: current.setIndex, endedAt: Date.now() })
+    writeSession({ workoutId: current.workoutId, startedAt: current.startedAt, index: current.index, setIndex: current.setIndex, endedAt: clock() })
   }
 
   // Série terminée : on passe à la suivante (ou à l'exercice suivant) et le repos démarre
   const completeSet = () => {
     if (!session) return
-    const exercise = workout.exercises[session.index]
-    const lastSet = session.setIndex + 1 >= exercise.target_sets
+    const block = blocks[session.index]
+    const lastSet = session.setIndex + 1 >= groupSets(block)
     const lastExercise = session.index + 1 >= total
 
     if (lastSet && lastExercise) {
@@ -212,13 +295,11 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       ...next,
     }
 
-    const at = Date.now()
+    // Repos une seule fois par tour : après le dernier exercice du bloc
+    const rest = groupRest(block)
+    const at = clock()
     setNow(at)
-    writeSession(
-      exercise.rest_time > 0
-        ? { ...base, restEndsAt: at + exercise.rest_time * 1000, restSeconds: exercise.rest_time }
-        : base
-    )
+    writeSession(rest > 0 ? { ...base, restEndsAt: at + rest * 1000, restSeconds: rest } : base)
   }
 
   const endRest = () => {
@@ -379,9 +460,14 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   // --- Séance en cours ---
   if (session) {
     const index = Math.min(Math.max(session.index, 0), total - 1)
-    const exercise = workout.exercises[index]
-    const setNumber = Math.min(session.setIndex + 1, exercise.target_sets)
-    const isFinalSet = index === total - 1 && setNumber >= exercise.target_sets
+    const block = blocks[index]
+    const exercise = block[0]
+    const isSuperset = block.length > 1
+    const repsDiffer = new Set(block.map((e) => e.target_reps)).size > 1
+    const sets = groupSets(block)
+    const restSeconds = groupRest(block)
+    const setNumber = Math.min(session.setIndex + 1, sets)
+    const isFinalSet = index === total - 1 && setNumber >= sets
 
     const header = (
       <>
@@ -389,7 +475,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           <div>
             <p className="text-xs text-gray-500">{workout.name}</p>
             <p className="text-sm font-medium text-gray-700">
-              Exercice {index + 1} sur {total}
+              {isSuperset ? 'Superset' : 'Exercice'} {index + 1} sur {total}
             </p>
           </div>
           <p className="flex items-center gap-2 font-display text-4xl font-bold tabular-nums text-gray-900">
@@ -399,9 +485,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         </div>
 
         <div className="flex gap-1.5" aria-hidden="true">
-          {workout.exercises.map((item, i) => {
+          {blocks.map((item, i) => {
             const fill =
-              i < index ? 100 : i === index ? (session.setIndex / item.target_sets) * 100 : 0
+              i < index ? 100 : i === index ? (session.setIndex / groupSets(item)) * 100 : 0
 
             return (
               <span key={i} className="h-1.5 flex-1 rounded-full bg-gray-200 overflow-hidden">
@@ -458,13 +544,19 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             <ProgressBar value={progress} tone={restDone ? 'success' : 'accent'} />
             <div className="text-sm text-gray-600">
               À suivre :{' '}
-              <span className="font-semibold text-gray-900">{exercise.name}</span>
-              <span className="block">
-                série {setNumber} sur {exercise.target_sets} ·{' '}
-                {exercise.target_reps === null
-                  ? 'max de répétitions (jusqu’à l’échec)'
-                  : `${exercise.target_reps} répétitions`}
+              <span className="font-semibold text-gray-900">
+                {isSuperset ? `${joinNames(block)} en superset` : exercise.name}
               </span>
+              <span className="block">
+                série {setNumber} sur {sets}
+                {isSuperset ? '' : ` · ${repsText(exercise)}`}
+              </span>
+              {isSuperset &&
+                block.map((e, i) => (
+                  <span key={i} className="block">
+                    {e.name} : {repsText(e)}
+                  </span>
+                ))}
             </div>
           </div>
 
@@ -482,42 +574,94 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       <div className="space-y-4">
         {header}
 
-        <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-          <div>
-            <h1 className="text-3xl font-extrabold text-gray-900">{exercise.name}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {exercise.muscle_group} · {exercise.equipment}
-            </p>
+        {isSuperset ? (
+          <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
+            <div>
+              <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-blue-600">
+                <LinkIcon className="h-4 w-4" />
+                Superset · {block.length} exercices enchaînés
+              </p>
+              <h1 className="mt-1 text-lg font-semibold text-gray-700">{joinNames(block)} en superset</h1>
+            </div>
+
+            <div className="space-y-4">
+              {block.map((e, i) => (
+                <div key={i} className="space-y-2 rounded-lg border p-3">
+                  <div>
+                    <h2 className="text-2xl font-extrabold text-gray-900">{e.name}</h2>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {e.muscle_group} · {e.equipment}
+                      {repsDiffer && ` · ${e.target_reps === null ? 'max' : e.target_reps} reps`}
+                    </p>
+                  </div>
+
+                  {e.description && <p className="text-sm text-gray-600">{e.description}</p>}
+
+                  <ExecutionToggle exercise={e} />
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-blue-50 rounded-lg py-3">
+                <p className="font-display text-4xl font-bold text-blue-700">
+                  {setNumber}
+                  <span className="text-xl font-semibold text-blue-400">/{sets}</span>
+                </p>
+                <p className="text-xs text-blue-600">série</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg py-3">
+                <p className="font-display text-4xl font-bold uppercase text-gray-900">{groupRepsLabel(block)}</p>
+                <p className="text-xs text-gray-500">
+                  {block.every((e) => e.target_reps === null) ? 'jusqu’à l’échec' : 'répétitions'}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg py-3">
+                <p className="font-display text-3xl font-bold leading-[2.5rem] text-gray-900">
+                  {formatRestTime(restSeconds)}
+                </p>
+                <p className="text-xs text-gray-500">repos</p>
+              </div>
+            </div>
           </div>
+        ) : (
+          <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
+            <div>
+              <h1 className="text-3xl font-extrabold text-gray-900">{exercise.name}</h1>
+              <p className="mt-1 text-sm text-gray-500">
+                {exercise.muscle_group} · {exercise.equipment}
+              </p>
+            </div>
 
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-blue-50 rounded-lg py-3">
-              <p className="font-display text-4xl font-bold text-blue-700">
-                {setNumber}
-                <span className="text-xl font-semibold text-blue-400">/{exercise.target_sets}</span>
-              </p>
-              <p className="text-xs text-blue-600">série</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="bg-blue-50 rounded-lg py-3">
+                <p className="font-display text-4xl font-bold text-blue-700">
+                  {setNumber}
+                  <span className="text-xl font-semibold text-blue-400">/{sets}</span>
+                </p>
+                <p className="text-xs text-blue-600">série</p>
+              </div>
+              <div className="bg-gray-50 rounded-lg py-3">
+                <p className="font-display text-4xl font-bold uppercase text-gray-900">
+                  {formatReps(exercise.target_reps)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {exercise.target_reps === null ? 'jusqu’à l’échec' : 'répétitions'}
+                </p>
+              </div>
+              <div className="bg-gray-50 rounded-lg py-3">
+                <p className="font-display text-3xl font-bold leading-[2.5rem] text-gray-900">
+                  {formatRestTime(restSeconds)}
+                </p>
+                <p className="text-xs text-gray-500">repos</p>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-lg py-3">
-              <p className="font-display text-4xl font-bold uppercase text-gray-900">
-                {formatReps(exercise.target_reps)}
-              </p>
-              <p className="text-xs text-gray-500">
-                {exercise.target_reps === null ? 'jusqu’à l’échec' : 'répétitions'}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg py-3">
-              <p className="font-display text-3xl font-bold leading-[2.5rem] text-gray-900">
-                {formatRestTime(exercise.rest_time)}
-              </p>
-              <p className="text-xs text-gray-500">repos</p>
-            </div>
+
+            {exercise.description && <p className="text-sm text-gray-600">{exercise.description}</p>}
+
+            <ExecutionToggle exercise={exercise} />
           </div>
-
-          {exercise.description && <p className="text-sm text-gray-600">{exercise.description}</p>}
-
-          <ExerciseMedia exercise={exercise} />
-        </div>
+        )}
 
         <Button size="lg" variant={isFinalSet ? 'success' : 'primary'} onClick={completeSet}>
           {isFinalSet ? 'Dernière série terminée · Finir la séance' : 'Série terminée'}
@@ -536,7 +680,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             disabled={index === total - 1}
             className="text-gray-600 hover:text-blue-600 disabled:opacity-30 cursor-pointer disabled:cursor-not-allowed"
           >
-            Passer cet exercice →
+            {isSuperset ? 'Passer ce superset →' : 'Passer cet exercice →'}
           </button>
         </div>
 
@@ -575,7 +719,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             )}
             <span className="inline-flex items-center gap-1.5">
               <DumbbellIcon className="h-5 w-5 text-gray-500" />
-              {total} exercice{total > 1 ? 's' : ''}
+              {exerciseCount} exercice{exerciseCount > 1 ? 's' : ''}
             </span>
             {muscles.map((muscle) => (
               <Pill key={muscle}>{muscle}</Pill>
@@ -590,46 +734,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         <p className="text-sm text-gray-500">Cette séance ne contient aucun exercice.</p>
       ) : (
         <ol className="stagger space-y-3">
-          {workout.exercises.map((exercise, i) => (
-            <li key={i} className="glass border rounded-xl shadow-sm overflow-hidden">
-              <details className="group">
-                <summary className="flex flex-wrap items-center gap-x-3 pr-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50">
-                  <ExerciseThumb exercise={exercise} />
-                  <span className="min-w-0 flex-1 basis-40 py-4 text-base font-semibold text-gray-900">
-                    {String(i + 1).padStart(2, '0')}. {exercise.name}
-                  </span>
-                  <span className="ml-auto shrink-0 flex flex-col items-end gap-1 py-4">
-                    <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
-                    <RestLabel seconds={exercise.rest_time} />
-                  </span>
-                  <svg
-                    className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </summary>
+          {blocks.map((block, b) => {
+            const start = blocks.slice(0, b).reduce((n, g) => n + g.length, 0)
+            if (block.length === 1) return <ExerciseRow key={b} exercise={block[0]} position={start + 1} />
 
-                <div className="bg-gray-50 border-t px-4 py-4 space-y-3 text-sm">
-                  <p className="text-xs text-gray-500">
-                    {exercise.muscle_group} · {exercise.equipment}
-                  </p>
-                  {exercise.description ? (
-                    <p className="text-gray-600">{exercise.description}</p>
-                  ) : (
-                    <p className="text-gray-500">Pas de description pour cet exercice.</p>
-                  )}
-                  <ExerciseMedia exercise={exercise} />
-                </div>
-              </details>
-            </li>
-          ))}
+            return <SupersetCard key={b} block={block} start={start} />
+          })}
         </ol>
       )}
 
@@ -648,5 +758,99 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         )}
       </div>
     </div>
+  )
+}
+
+// Carte d'un exercice de l'aperçu : vignette, nom, séries ; un clic déplie la description et le média
+function ExerciseRow({
+  exercise,
+  position,
+  bare = false,
+  group,
+}: {
+  exercise: SessionExercise
+  position: number
+  // Dans un bloc superset : pas de cadre
+  bare?: boolean
+  // Premier exercice d'un superset : la pastille et le repos sont ceux du groupe, comme un exercice normal
+  group?: SessionExercise[]
+}) {
+  return (
+    <li className={bare ? undefined : 'glass border rounded-xl shadow-sm overflow-hidden'}>
+      <details className="group">
+        <summary
+          className={`relative flex flex-wrap items-center gap-x-3 pr-8 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50 ${
+            bare ? 'min-h-[5.5rem]' : ''
+          }`}
+        >
+          <ExerciseThumb exercise={exercise} />
+          <span className="min-w-0 flex-1 basis-40 py-4 text-base font-semibold text-gray-900">
+            {String(position).padStart(2, '0')}. {exercise.name}
+          </span>
+          {group ? (
+            <span className="ml-auto shrink-0 flex flex-col items-center gap-2 py-4">
+              <SetsPill sets={groupSets(group)} reps={null} repsLabel={groupRepsLabel(group)} />
+              <RestLabel seconds={groupRest(group)} />
+            </span>
+          ) : bare ? (
+            <span className="ml-auto" />
+          ) : (
+            <span className="ml-auto shrink-0 flex flex-col items-center gap-2 py-4">
+              <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
+              <RestLabel seconds={exercise.rest_time} />
+            </span>
+          )}
+          <svg
+            className="absolute bottom-2 right-3 h-4 w-4 text-gray-400 transition-transform group-open:rotate-180"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              fillRule="evenodd"
+              d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </summary>
+
+        <DetailsPanel exercise={exercise} />
+      </details>
+    </li>
+  )
+}
+
+// « Pompes, Dips et Curl » : les noms du bloc, séparés par des virgules puis « et »
+function joinNames(block: SessionExercise[]): string {
+  const names = block.map((e) => e.name)
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} et ${names[names.length - 1]}`
+}
+
+function repsText(exercise: SessionExercise): string {
+  return exercise.target_reps === null ? 'max de répétitions (jusqu’à l’échec)' : `${exercise.target_reps} répétitions`
+}
+
+// Un superset dans l'aperçu : un seul bloc. Les exercices sont au-dessus, puis séries, répétitions et repos une seule fois.
+function SupersetCard({ block, start }: { block: SessionExercise[]; start: number }) {
+  return (
+    <li className="glass overflow-hidden rounded-xl border border-l-4 border-l-blue-600 shadow-sm">
+      {/* Le premier exercice porte séries × répétitions et repos ; « SUPERSET » est entre les exercices */}
+      <ol>
+        {block.map((exercise, i) => (
+          <Fragment key={i}>
+            {i > 0 && (
+              // Simple trait entre les deux exercices, avec une petite étiquette posée dessus
+              <li aria-label="Superset avec l'exercice précédent" className="relative z-10 h-0 border-t">
+                <span className="absolute left-1/2 top-0 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                  <LinkIcon className="h-3 w-3" />
+                  Superset
+                </span>
+              </li>
+            )}
+            <ExerciseRow exercise={exercise} position={start + i + 1} bare group={i === 0 ? block : undefined} />
+          </Fragment>
+        ))}
+      </ol>
+    </li>
   )
 }

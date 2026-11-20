@@ -27,6 +27,8 @@ export type SessionExercise = {
   target_sets: number
   target_reps: number | null
   rest_time: number
+  // Enchaîné avec l'exercice précédent (superset) : même tour, sans repos entre les deux
+  linked_to_previous: boolean
 }
 
 export type SessionWorkout = {
@@ -42,6 +44,7 @@ export type WorkoutExerciseInput = {
   target_sets: number
   target_reps: number | null
   rest_time: number
+  linked_to_previous: boolean
 }
 
 export type WorkoutInput = {

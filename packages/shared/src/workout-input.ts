@@ -1,3 +1,4 @@
+import { SUPERSET_SETS_ERROR } from './supersets'
 import type { WorkoutInput } from './types'
 
 export type { ActionResult } from './result'
@@ -16,7 +17,14 @@ export function validateWorkoutInput(input: WorkoutInput): string | null {
       !Number.isInteger(e.rest_time) ||
       e.rest_time < 0
   )
-  return invalid ? 'Séries, répétitions et repos doivent être des nombres valides.' : null
+  if (invalid) return 'Séries, répétitions et repos doivent être des nombres valides.'
+
+  // Un superset : le premier exercice ne peut pas être lié, et tout le groupe a le même nombre de séries
+  if (input.exercises[0].linked_to_previous) return 'Le premier exercice ne peut pas être lié à un précédent.'
+  const mismatch = input.exercises.some(
+    (e, i) => i > 0 && e.linked_to_previous && e.target_sets !== input.exercises[i - 1].target_sets
+  )
+  return mismatch ? SUPERSET_SETS_ERROR : null
 }
 
 export function toWorkoutRows(workoutId: string, input: WorkoutInput) {
@@ -27,5 +35,6 @@ export function toWorkoutRows(workoutId: string, input: WorkoutInput) {
     target_sets: e.target_sets,
     target_reps: e.target_reps,
     rest_time: e.rest_time,
+    linked_to_previous: e.linked_to_previous,
   }))
 }

@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons'
 import { router, usePreventRemove } from 'expo-router'
 import { useState } from 'react'
 import { Alert, Pressable, Text, TextInput, View } from 'react-native'
@@ -10,12 +11,14 @@ import type { Exercise, WorkoutInput } from '@vigor/shared/types'
 import BackLink from '@/components/back-link'
 import ExercisePicker from '@/components/exercise-picker'
 import { Button, Card, ErrorBox, inputClass, Label, Muted, Screen, Title } from '@/components/ui'
+import { useAccent } from '@/lib/theme'
 
 // Valeur de `reps` quand le bouton « Max » est activé (jusqu'à l'échec)
 const MAX_REPS = 'max'
 
 // `lastReps` : dernier nombre saisi, rétabli quand on désactive « Max »
-type Item = { exercise_id: string; sets: string; reps: string; rest: string; lastReps?: string }
+// `linked` : enchaîné avec l'exercice précédent (superset)
+type Item = { exercise_id: string; sets: string; reps: string; rest: string; linked: boolean; lastReps?: string }
 
 type Props = {
   title: string
@@ -28,12 +31,22 @@ type Props = {
   onDone: () => void
 }
 
+// Début et fin (indices inclus) du superset qui contient l'exercice `index` ; un exercice seul : [index, index]
+function groupRange(items: { linked: boolean }[], index: number): [number, number] {
+  let from = index
+  while (from > 0 && items[from].linked) from--
+  let to = index
+  while (to + 1 < items.length && items[to + 1].linked) to++
+  return [from, to]
+}
+
 function toItems(initial?: EditableWorkout): Item[] {
   return (initial?.items ?? []).map((i) => ({
     exercise_id: i.exercise_id,
     sets: String(i.sets),
     reps: formatReps(i.reps),
     rest: String(i.rest),
+    linked: i.linked,
   }))
 }
 
@@ -69,11 +82,28 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
 
   function addExercise(id: string) {
     // Valeurs par défaut de la table workout_exercises (comme le web)
-    setItems((current) => [...current, { exercise_id: id, sets: '4', reps: '12', rest: '90' }])
+    setItems((current) => [...current, { exercise_id: id, sets: '4', reps: '12', rest: '90', linked: false }])
   }
 
-  function updateItem(index: number, field: keyof Omit<Item, 'exercise_id' | 'lastReps'>, value: string) {
-    setItems((current) => current.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
+  function updateItem(index: number, field: 'sets' | 'reps' | 'rest', value: string) {
+    setItems((current) => {
+      // Les exercices d'un superset ont tous le même nombre de séries : on le change pour tout le groupe
+      const [from, to] = field === 'sets' ? groupRange(current, index) : [index, index]
+      return current.map((item, i) => (i >= from && i <= to ? { ...item, [field]: value } : item))
+    })
+  }
+
+  // Lie l'exercice à l'exercice précédent (ou délie) ; lié, il prend le nombre de séries du précédent
+  function toggleLink(index: number) {
+    setItems((current) => {
+      if (index === 0) return current
+      const linking = !current[index].linked
+      const next = current.map((item, i) => (i === index ? { ...item, linked: linking } : item))
+      if (!linking) return next
+      const [from, to] = groupRange(next, index)
+      const sets = next[from].sets
+      return next.map((item, i) => (i >= from && i <= to ? { ...item, sets } : item))
+    })
   }
 
   // Bouton « Max » : remplace le nombre de répétitions par MAX, et le rétablit au second appui
@@ -93,11 +123,20 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
     if (target < 0 || target >= items.length) return
     const next = [...items]
     ;[next[index], next[target]] = [next[target], next[index]]
+    // Déplacer un exercice défait les supersets qui l'entourent (liens des deux exercices échangés et du suivant)
+    const low = Math.min(index, target)
+    for (let i = low; i <= Math.min(low + 2, next.length - 1); i++) next[i] = { ...next[i], linked: false }
     setItems(next)
   }
 
   function removeItem(index: number) {
-    setItems((current) => current.filter((_, i) => i !== index))
+    setItems((current) => {
+      const next = current.filter((_, i) => i !== index)
+      // Le suivant, lié à l'exercice retiré, ne doit pas se retrouver lié à un autre groupe
+      if (next[index] && !current[index].linked) next[index] = { ...next[index], linked: false }
+      if (next[0]) next[0] = { ...next[0], linked: false }
+      return next
+    })
   }
 
   async function submit() {
@@ -106,7 +145,7 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
     const result = await onSubmit({
       name,
       description,
-      exercises: items.map((i) => {
+      exercises: items.map((i, position) => {
         // "max" -> null ; saisie invalide -> NaN (refusée par la validation)
         const reps = parseRepsInput(i.reps)
 
@@ -115,6 +154,7 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
           target_sets: Number(i.sets),
           target_reps: reps === undefined ? NaN : reps,
           rest_time: Number(i.rest),
+          linked_to_previous: position > 0 && i.linked,
         }
       }),
     })
@@ -172,9 +212,20 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
           items.map((item, index) => {
             const exercise = exerciseById.get(item.exercise_id)
             const restSeconds = Number(item.rest)
+            const [groupFrom, groupTo] = groupRange(items, index)
+            const inGroup = groupTo > groupFrom
+            // Dans un superset, seul le dernier exercice a un repos (après le tour complet)
+            const hasRest = !inGroup || index === groupTo
 
             return (
-              <Card key={item.exercise_id}>
+              <View key={item.exercise_id} className="gap-3">
+                {index > 0 ? (
+                  <LinkButton linked={item.linked} onPress={() => toggleLink(index)} />
+                ) : null}
+                <View className="flex-row">
+                  {inGroup ? <View className="mr-2 w-1 rounded-full bg-blue-600" /> : null}
+                  <View className="flex-1">
+              <Card>
                 <View className="mb-3 flex-row items-start justify-between gap-2">
                   <View className="shrink">
                     <Text className="font-medium text-gray-900 dark:text-white">
@@ -256,14 +307,26 @@ export default function WorkoutForm({ title, submitLabel, exercises, initial, on
                     </View>
                   </View>
 
-                  <NumberField
-                    label="Repos (s)"
-                    value={item.rest}
-                    onChange={(v) => updateItem(index, 'rest', v)}
-                    hint={Number.isInteger(restSeconds) && restSeconds >= 60 ? `= ${formatRestTime(restSeconds)}` : undefined}
-                  />
+                  {hasRest ? (
+                    <NumberField
+                      label="Repos (s)"
+                      value={item.rest}
+                      onChange={(v) => updateItem(index, 'rest', v)}
+                      hint={Number.isInteger(restSeconds) && restSeconds >= 60 ? `= ${formatRestTime(restSeconds)}` : undefined}
+                    />
+                  ) : (
+                    <View className="flex-1">
+                      <Text className="mb-1 text-xs text-gray-600 dark:text-zinc-400">Repos</Text>
+                      <View className="h-12 justify-center">
+                        <Text className="text-xs text-gray-500 dark:text-zinc-400">Aucun : enchaîné avec la suite</Text>
+                      </View>
+                    </View>
+                  )}
                 </View>
               </Card>
+                  </View>
+                </View>
+              </View>
             )
           })
         )}
@@ -318,6 +381,26 @@ function NumberField({
       />
       {hint ? <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">{hint}</Text> : null}
     </View>
+  )
+}
+
+// Entre deux exercices : lier / délier en superset
+function LinkButton({ linked, onPress }: { linked: boolean; onPress: () => void }) {
+  const accent = useAccent()
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: linked }}
+      className={`flex-row items-center justify-center gap-2 self-center rounded-full border px-4 py-1.5 ${
+        linked ? 'border-blue-600 bg-blue-600/15' : 'border-gray-300 dark:border-zinc-700'
+      }`}
+    >
+      <Ionicons name={linked ? 'link' : 'link-outline'} size={16} color={linked ? accent : '#94a3b8'} />
+      <Text className={`text-xs font-semibold ${linked ? 'text-blue-600' : 'text-gray-500 dark:text-zinc-400'}`}>
+        {linked ? 'Superset avec le précédent · délier' : 'Lier en superset avec le précédent'}
+      </Text>
+    </Pressable>
   )
 }
 
