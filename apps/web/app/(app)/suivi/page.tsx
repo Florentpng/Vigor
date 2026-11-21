@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Card } from '@/components/ui/card'
+import { Collapsible } from '@/components/ui/collapsible'
 import { DumbbellIcon, FlameIcon, TimerIcon } from '@/components/ui/icons'
 import { getHistory, getHistoryTotals } from '@vigor/shared/queries'
 import { getTodayDate, getWeightEntries } from '@vigor/shared/weights'
@@ -82,12 +83,22 @@ export default async function WeightPage() {
         <WeightForm today={getTodayDate()} />
       </Card>
 
+      <section>
+        <h2 className="mb-3 text-3xl font-bold text-gray-900">Évolution</h2>
+        {entries.length < 2 ? (
+          <p className="text-sm text-gray-600">Enregistre au moins deux pesées pour voir la courbe.</p>
+        ) : (
+          <Card>
+            <WeightChart entries={[...entries].reverse()} />
+          </Card>
+        )}
+      </section>
+
       {/* Bandeau déroulant : s'ouvre juste sous le formulaire d'enregistrement */}
       <details className="group glass overflow-hidden rounded-xl border shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <span className="font-display text-2xl font-bold text-gray-900">
             Historique
-            <span className="ml-3 font-sans text-sm font-normal text-gray-500">{entries.length}</span>
           </span>
           <svg
             viewBox="0 0 24 24"
@@ -129,27 +140,15 @@ export default async function WeightPage() {
 
       {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
 
-      <section>
-        <h2 className="mb-3 text-3xl font-bold text-gray-900">Évolution</h2>
-        {entries.length < 2 ? (
-          <p className="text-sm text-gray-600">Enregistre au moins deux pesées pour voir la courbe.</p>
-        ) : (
-          <Card>
-            <WeightChart entries={[...entries].reverse()} />
-          </Card>
-        )}
-      </section>
 
-      <section>
-        <h2 className="mb-3 text-3xl font-bold text-gray-900">Séances effectuées</h2>
-
-        {historyError && <div className="mb-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{historyError}</div>}
+      <Collapsible title="Séances effectuées">
+        {historyError && <div className="m-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{historyError}</div>}
 
         {history.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucune séance enregistrée pour l&apos;instant.</p>
+          <p className="px-4 py-3 text-sm text-gray-500">Aucune séance enregistrée pour l&apos;instant.</p>
         ) : (
           // Hauteur limitée : seul ce bloc défile, la page ne s'allonge pas avec le nombre de séances
-          <ul className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+          <ul className="max-h-[28rem] space-y-3 overflow-y-auto p-3">
             {history.map((log) => (
               <li
                 key={log.id}
@@ -180,7 +179,7 @@ export default async function WeightPage() {
             ))}
           </ul>
         )}
-      </section>
+      </Collapsible>
     </div>
   )
 }

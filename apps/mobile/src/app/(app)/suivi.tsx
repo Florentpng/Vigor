@@ -3,12 +3,15 @@ import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/d
 import { useState } from 'react'
 import { Alert, Platform, Pressable, ScrollView, Text, TextInput, useColorScheme, View } from 'react-native'
 
+import { getLoadSummaries } from '@vigor/shared/loads'
 import { getHistory, getHistoryTotals } from '@vigor/shared/queries'
 import { deleteWeightEntry, getTodayDate, getWeightEntries, saveWeightEntry, type WeightEntry } from '@vigor/shared/weights'
 
 import { Button, Card, ErrorBox, glassClass, inputClass, Label, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
 import { useUserId } from '@/lib/auth'
 import { supabase } from '@/lib/supabase'
+import Collapsible from '@/components/collapsible'
+import LoadsSection from '@/components/loads-section'
 import WeightChart from '@/components/weight-chart'
 import { useAccent } from '@/lib/theme'
 import { useFocusQuery } from '@/lib/use-focus-query'
@@ -52,12 +55,13 @@ export default function WeightScreen() {
   const flame = dark ? '#fb923c' : '#ea580c'
 
   const { data, loading, refreshing, refresh, error } = useFocusQuery(async () => {
-    const [weights, history, totals] = await Promise.all([
+    const [weights, history, totals, loads] = await Promise.all([
       getWeightEntries(supabase, userId),
       getHistory(supabase, userId),
       getHistoryTotals(supabase, userId),
+      getLoadSummaries(supabase, userId),
     ])
-    return { weights, history, totals: totals.data }
+    return { weights, history, totals: totals.data, loads }
   })
 
   if (loading) return <Loading />
@@ -65,7 +69,7 @@ export default function WeightScreen() {
   const entries = data?.weights.data ?? []
   const history = data?.history.data ?? []
   const totals = data?.totals ?? { sessions: 0, minutes: 0, calories: 0 }
-  const errorMessage = error ?? data?.weights.error ?? data?.history.error
+  const errorMessage = error ?? data?.weights.error ?? data?.history.error ?? data?.loads.error
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
@@ -91,8 +95,6 @@ export default function WeightScreen() {
 
       <WeightForm onSaved={refresh} />
 
-      <History entries={entries} onDeleted={refresh} />
-
       {errorMessage ? <ErrorBox>{errorMessage}</ErrorBox> : null}
 
       <View className="gap-3">
@@ -106,10 +108,13 @@ export default function WeightScreen() {
         )}
       </View>
 
-      <View className="gap-3">
-        <SectionTitle>Séances effectuées</SectionTitle>
+      <History entries={entries} onDeleted={refresh} />
+
+      <LoadsSection loads={data?.loads.data ?? []} />
+
+      <Collapsible title="Séances effectuées">
         {history.length === 0 ? (
-          <Muted>Aucune séance enregistrée pour l&apos;instant.</Muted>
+          <Text className="px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">Aucune séance enregistrée pour l&apos;instant.</Text>
         ) : (
           // Hauteur limitée : seul ce bloc défile (barre visible), la page ne s'allonge pas avec le nombre de séances
           <ScrollView
@@ -117,7 +122,7 @@ export default function WeightScreen() {
             showsVerticalScrollIndicator
             persistentScrollbar
             style={{ maxHeight: 440 }}
-            contentContainerClassName="gap-3 pr-1"
+            contentContainerClassName="gap-3 p-3 pr-4"
           >
             {history.map((log) => (
               <View key={log.id} className={`flex-row items-center justify-between gap-3 px-4 py-3 ${glassClass}`}>
@@ -146,39 +151,32 @@ export default function WeightScreen() {
             ))}
           </ScrollView>
         )}
-      </View>
+      </Collapsible>
     </Screen>
   )
 }
 
-// Bandeau déroulant, sous le formulaire : replié par défaut
+// Historique des pesées : bandeau déroulant, replié par défaut
 function History({ entries, onDeleted }: { entries: WeightEntry[]; onDeleted: () => void }) {
-  const [open, setOpen] = useState(false)
-
   return (
-    <View className={`overflow-hidden ${glassClass}`}>
-      <Pressable
-        onPress={() => setOpen((value) => !value)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        className="flex-row items-center justify-between px-4 py-3"
-      >
-        <Text className="font-display text-2xl text-gray-900 dark:text-white">
-          Historique
-          <Text className="font-sans text-sm text-gray-500 dark:text-zinc-400">{`  ${entries.length}`}</Text>
-        </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={20} color="#94a3b8" />
-      </Pressable>
-      {open ? (
-        <View className="border-t border-gray-200 bg-gray-50 px-4 dark:border-zinc-800 dark:bg-zinc-950/40">
-          {entries.length === 0 ? (
-            <Text className="py-3 text-sm text-gray-500 dark:text-zinc-400">Aucune pesée enregistrée pour l&apos;instant.</Text>
-          ) : (
-            entries.map((entry, i) => <EntryRow key={entry.id} entry={entry} first={i === 0} onDeleted={onDeleted} />)
-          )}
-        </View>
-      ) : null}
-    </View>
+    <Collapsible title="Historique">
+      {entries.length === 0 ? (
+        <Text className="px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">Aucune pesée enregistrée pour l&apos;instant.</Text>
+      ) : (
+        // Hauteur limitée : seul ce bloc défile (barre visible)
+        <ScrollView
+          nestedScrollEnabled
+          showsVerticalScrollIndicator
+          persistentScrollbar
+          style={{ maxHeight: 440 }}
+          contentContainerClassName="px-4 pr-5"
+        >
+          {entries.map((entry, i) => (
+            <EntryRow key={entry.id} entry={entry} first={i === 0} onDeleted={onDeleted} />
+          ))}
+        </ScrollView>
+      )}
+    </Collapsible>
   )
 }
 

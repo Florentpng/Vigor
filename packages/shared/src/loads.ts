@@ -152,3 +152,88 @@ export async function saveSessionSets(
   if (loadsError) return { error: loadsError.message }
   return { ok: true }
 }
+
+// --- Suivi : liste des charges et historique par exercice ---
+
+export type LoadSummary = {
+  exercise_id: string
+  name: string
+  muscle_group: string
+  equipment: string
+  weight_kg: number // charge actuelle
+  record_kg: number // charge la plus lourde jamais utilisée
+}
+
+// Exercices pour lesquels une charge est enregistrée, avec la charge actuelle et le record.
+export async function getLoadSummaries(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ data: LoadSummary[]; error: string | null }> {
+  const [loadsRes, setsRes] = await Promise.all([
+    supabase
+      .from('exercise_loads')
+      .select('exercise_id, weight_kg, exercises(name, muscle_group, equipment)')
+      .eq('user_id', userId),
+    supabase.from('workout_log_sets').select('exercise_id, weight_kg').eq('user_id', userId).limit(5000),
+  ])
+
+  const record = new Map<string, number>()
+  for (const row of (setsRes.data ?? []) as { exercise_id: string; weight_kg: number }[]) {
+    const id = String(row.exercise_id)
+    record.set(id, Math.max(record.get(id) ?? 0, Number(row.weight_kg)))
+  }
+
+  type Row = {
+    exercise_id: string
+    weight_kg: number
+    exercises: { name: string; muscle_group: string; equipment: string } | { name: string; muscle_group: string; equipment: string }[] | null
+  }
+  const data = ((loadsRes.data ?? []) as unknown as Row[])
+    .map((row) => {
+      const exercise = Array.isArray(row.exercises) ? row.exercises[0] : row.exercises
+      const id = String(row.exercise_id)
+      return {
+        exercise_id: id,
+        name: exercise?.name ?? 'Exercice supprimé',
+        muscle_group: exercise?.muscle_group ?? '',
+        equipment: exercise?.equipment ?? '',
+        weight_kg: Number(row.weight_kg),
+        record_kg: Math.max(record.get(id) ?? 0, Number(row.weight_kg)),
+      }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+
+  return { data, error: loadsRes.error?.message ?? setsRes.error?.message ?? null }
+}
+
+// Une séance d'un exercice : charge de chaque série (dans l'ordre) et charge la plus lourde
+export type LoadSession = { session_id: string; date: string; weights: number[]; max_kg: number }
+
+// Historique d'un exercice, de la séance la plus ancienne à la plus récente.
+export async function getLoadHistory(
+  supabase: SupabaseClient,
+  userId: string,
+  exerciseId: string
+): Promise<{ data: LoadSession[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from('workout_log_sets')
+    .select('session_id, set_number, weight_kg, completed_at')
+    .eq('user_id', userId)
+    .eq('exercise_id', exerciseId)
+    .order('completed_at', { ascending: true })
+    .limit(2000)
+
+  const parisDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' })
+  const sessions = new Map<string, { date: string; sets: { set_number: number; weight_kg: number }[] }>()
+  for (const row of (data ?? []) as { session_id: string; set_number: number; weight_kg: number; completed_at: string }[]) {
+    const entry = sessions.get(row.session_id) ?? { date: parisDate.format(new Date(row.completed_at)), sets: [] }
+    entry.sets.push({ set_number: row.set_number, weight_kg: Number(row.weight_kg) })
+    sessions.set(row.session_id, entry)
+  }
+
+  const list = [...sessions].map(([session_id, entry]) => {
+    const weights = entry.sets.sort((a, b) => a.set_number - b.set_number).map((s) => s.weight_kg)
+    return { session_id, date: entry.date, weights, max_kg: Math.max(...weights) }
+  })
+  return { data: list, error: error?.message ?? null }
+}
