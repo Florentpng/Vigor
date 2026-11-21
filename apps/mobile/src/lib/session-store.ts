@@ -2,6 +2,8 @@ import 'expo-sqlite/localStorage/install'
 
 import { useMemo, useSyncExternalStore } from 'react'
 
+import type { LoggedSet } from '@vigor/shared/loads'
+
 export type StoredSession = {
   workoutId: string
   startedAt: number
@@ -10,12 +12,16 @@ export type StoredSession = {
   restEndsAt?: number // présent pendant un repos
   restSeconds?: number // durée totale du repos en cours
   endedAt?: number
+  sessionId: string // regroupe les séries de la séance au moment de l'enregistrement
+  loads: Record<string, number> // charge choisie pendant la séance, par exercice
+  sets: LoggedSet[] // séries déjà terminées (charge et répétitions)
   // présent une fois la séance enregistrée
   logged?: {
     calories: number
     minutes: number
     badges?: { code?: string; title: string; description: string }[]
     badgesError?: string
+    setsError?: string
   }
 }
 
@@ -65,7 +71,14 @@ function parseSession(raw: string | null): StoredSession | null {
     ) {
       return null
     }
-    return { ...value, setIndex: typeof value.setIndex === 'number' ? value.setIndex : 0 }
+    return {
+      ...value,
+      setIndex: typeof value.setIndex === 'number' ? value.setIndex : 0,
+      // Séance commencée avant l'arrivée des charges : pas de série à enregistrer
+      sessionId: typeof value.sessionId === 'string' ? value.sessionId : '',
+      loads: value.loads && typeof value.loads === 'object' ? value.loads : {},
+      sets: Array.isArray(value.sets) ? value.sets : [],
+    }
   } catch {
     return null
   }

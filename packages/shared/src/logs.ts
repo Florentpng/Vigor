@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { computeCalories } from './calories'
+import { type LoggedSet, saveSessionSets } from './loads'
 import { getUserId, INVALID_WEIGHT, isValidWeight } from './result'
 import { getLatestWeight, getTodayDate, saveWeightEntry } from './weights'
 
@@ -7,12 +8,15 @@ export type NewBadge = { code: string; title: string; description: string }
 
 export type LogResult =
   | { error: string }
-  | { ok: true; calories: number; minutes: number; badges: NewBadge[]; badgesError?: string }
+  | { ok: true; calories: number; minutes: number; badges: NewBadge[]; badgesError?: string; setsError?: string }
 
 export type LogInput = {
   workoutId: string
   durationSeconds: number
   weightKg?: number
+  // Séries réalisées (charge et répétitions) et identifiant de la séance qui les regroupe
+  sessionId?: string
+  sets?: LoggedSet[]
 }
 
 // Enregistre une séance terminée (calories MET × poids × durée), puis attribue les badges.
@@ -47,11 +51,18 @@ export async function saveWorkoutLog(supabase: SupabaseClient, input: LogInput):
   })
   if (error) return { error: error.message }
 
+  // Les séries ne doivent pas non plus faire échouer l'enregistrement de la séance
+  let setsError: string | undefined
+  if (input.sessionId && input.sets?.length) {
+    const saved = await saveSessionSets(supabase, userId, input.sessionId, input.sets)
+    if ('error' in saved) setsError = saved.error
+  }
+
   // Les badges ne doivent jamais faire échouer l'enregistrement de la séance
   const { data: unlocked, error: badgesError } = await supabase.rpc('award_badges')
   const badges = (
     (unlocked ?? []) as { badge_code: string; badge_title: string; badge_description: string }[]
   ).map((b) => ({ code: b.badge_code, title: b.badge_title, description: b.badge_description }))
 
-  return { ok: true, calories, minutes, badges, badgesError: badgesError?.message }
+  return { ok: true, calories, minutes, badges, badgesError: badgesError?.message, setsError }
 }

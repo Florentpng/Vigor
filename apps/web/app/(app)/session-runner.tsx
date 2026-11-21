@@ -119,7 +119,7 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
             type="button"
             onClick={() => setShowVideo((value) => !value)}
             aria-expanded={showVideo}
-            className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+            className="-mt-1.5 inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
           >
             <VideoIcon className="h-4 w-4" />
             {showVideo ? 'Masquer la vidéo' : 'Vidéo'}
@@ -130,7 +130,7 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
             disabled
             aria-label="Pas de vidéo"
             title="Pas de vidéo"
-            className="inline-flex shrink-0 cursor-not-allowed items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-gray-400"
+            className="-mt-1.5 inline-flex shrink-0 cursor-not-allowed items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-gray-400"
           >
             <VideoOffIcon className="h-4 w-4" />
           </button>
@@ -266,6 +266,13 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   const exerciseCount = workout.exercises.length
 
   const start = () => {
+    // Une autre séance est déjà en cours (ou terminée sans être enregistrée) : on demande avant de la remplacer
+    if (stored && stored.workoutId !== workout.id && !stored.logged) {
+      const message = stored.endedAt
+        ? 'Une autre séance est terminée mais pas enregistrée. La remplacer la supprimera. Continuer ?'
+        : 'Une autre séance est déjà en cours. La remplacer fera perdre son chrono et sa progression. Continuer ?'
+      if (!confirm(message)) return
+    }
     setNow(Date.now())
     writeSession({ workoutId: workout.id, startedAt: Date.now(), index: 0, setIndex: 0 })
   }
@@ -575,13 +582,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         {header}
 
         {isSuperset ? (
-          <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
+          <div className="bg-white border rounded-xl px-5 pb-5 pt-2.5 shadow-sm space-y-2.5">
             <div>
               <p className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-blue-600">
                 <LinkIcon className="h-4 w-4" />
                 Superset · {block.length} exercices enchaînés
               </p>
-              <h1 className="mt-1 text-lg font-semibold text-gray-700">{joinNames(block)} en superset</h1>
             </div>
 
             <div className="space-y-4">
@@ -767,7 +773,10 @@ function ExerciseRow({
   position,
   bare = false,
   group,
+  followsLabel = false,
 }: {
+  // Exercice qui suit un autre dans un superset : un peu d'espace en plus pour l'étiquette « SUPERSET » posée sur le trait
+  followsLabel?: boolean
   exercise: SessionExercise
   position: number
   // Dans un bloc superset : pas de cadre
@@ -779,23 +788,25 @@ function ExerciseRow({
     <li className={bare ? undefined : 'glass border rounded-xl shadow-sm overflow-hidden'}>
       <details className="group">
         <summary
-          className={`relative flex flex-wrap items-center gap-x-3 pr-8 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50 ${
+          className={`relative flex flex-wrap items-start gap-x-3 pr-8 cursor-pointer list-none [&::-webkit-details-marker]:hidden hover:bg-gray-50 ${
             bare ? 'min-h-[5.5rem]' : ''
           }`}
         >
           <ExerciseThumb exercise={exercise} />
-          <span className="min-w-0 flex-1 basis-40 py-4 text-base font-semibold text-gray-900">
-            {String(position).padStart(2, '0')}. {exercise.name}
+          <span
+            className={`min-w-0 flex-1 basis-40 text-base font-semibold text-gray-900 ${followsLabel ? 'pb-4 pt-5' : 'py-4'}`}
+          >
+            {position}. {exercise.name}
           </span>
           {group ? (
-            <span className="ml-auto shrink-0 flex flex-col items-center gap-2 py-4">
+            <span className={`ml-auto shrink-0 flex flex-col items-center gap-2 ${followsLabel ? 'pb-4 pt-5' : 'py-4'}`}>
               <SetsPill sets={groupSets(group)} reps={null} repsLabel={groupRepsLabel(group)} />
               <RestLabel seconds={groupRest(group)} />
             </span>
           ) : bare ? (
             <span className="ml-auto" />
           ) : (
-            <span className="ml-auto shrink-0 flex flex-col items-center gap-2 py-4">
+            <span className={`ml-auto shrink-0 flex flex-col items-center gap-2 ${followsLabel ? 'pb-4 pt-5' : 'py-4'}`}>
               <SetsPill sets={exercise.target_sets} reps={exercise.target_reps} />
               <RestLabel seconds={exercise.rest_time} />
             </span>
@@ -847,7 +858,13 @@ function SupersetCard({ block, start }: { block: SessionExercise[]; start: numbe
                 </span>
               </li>
             )}
-            <ExerciseRow exercise={exercise} position={start + i + 1} bare group={i === 0 ? block : undefined} />
+            <ExerciseRow
+              exercise={exercise}
+              position={start + i + 1}
+              bare
+              group={i === 0 ? block : undefined}
+              followsLabel={i > 0}
+            />
           </Fragment>
         ))}
       </ol>

@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
+import { randomUUID } from 'expo-crypto'
 import { Image } from 'expo-image'
 import { router } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { Alert, Pressable, Text, TextInput, Vibration, View, useColorScheme } from 'react-native'
+import { Alert, Pressable, Text, TextInput, Vibration, View } from 'react-native'
 
 import { computeCalories } from '@vigor/shared/calories'
 import {
@@ -12,11 +13,13 @@ import {
   formatRestTime,
   parseWorkoutTitle,
 } from '@vigor/shared/format'
+import { type ExerciseLoadInfo, formatLoad, getExerciseLoads, type LoggedSet } from '@vigor/shared/loads'
 import { saveWorkoutLog } from '@vigor/shared/logs'
 import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
 
 import ExerciseMedia from '@/components/exercise-media'
+import LoadControl from '@/components/load-control'
 import {
   Button,
   Chip,
@@ -30,13 +33,24 @@ import {
   Screen,
   SetsPill,
 } from '@/components/ui'
+import { useUserId } from '@/lib/auth'
 import { badgeImage } from '@/lib/badges'
+import { cancelRestNotification, prepareRestNotifications, scheduleRestEnd } from '@/lib/rest-notification'
 import { type StoredSession, useStoredSession, writeSession } from '@/lib/session-store'
 import { supabase } from '@/lib/supabase'
 import { useAccent } from '@/lib/theme'
+import { useFocusQuery } from '@/lib/use-focus-query'
 
 // Heure actuelle, lue dans les gestionnaires d'appui (pas pendant l'affichage)
 const clock = () => Date.now()
+
+// Séance sans la minuterie de repos
+function withoutRest(current: StoredSession): StoredSession {
+  const next = { ...current }
+  delete next.restEndsAt
+  delete next.restSeconds
+  return next
+}
 
 type Props = {
   workout: SessionWorkout
@@ -51,6 +65,17 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   const accent = useAccent()
   const stored = useStoredSession()
   const session = stored && stored.workoutId === workout.id ? stored : null
+  const userId = useUserId()
+
+  // Charge de travail de chaque exercice et nombre de séances à cette charge
+  const { data: loadData } = useFocusQuery(
+    () => getExerciseLoads(supabase, userId, workout.exercises.map((e) => e.exercise_id)),
+    workout.id
+  )
+  const infos: Record<string, ExerciseLoadInfo> = loadData ?? {}
+  // Charge actuelle d'un exercice : celle choisie pendant la séance, sinon la charge de référence
+  const currentLoad = (exercise: SessionExercise) =>
+    session?.loads[exercise.exercise_id] ?? infos[exercise.exercise_id]?.weight_kg ?? 0
 
   const [now, setNow] = useState(() => Date.now())
   const [saving, setSaving] = useState(false)
@@ -76,64 +101,111 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   const total = blocks.length
   const exerciseCount = workout.exercises.length
 
-  function start() {
+  function begin() {
+    // Autorisation des notifications (demandée une seule fois) pour être prévenu de la fin des repos
+    prepareRestNotifications()
     setNow(Date.now())
-    writeSession({ workoutId: workout.id, startedAt: Date.now(), index: 0, setIndex: 0 })
-  }
-
-  function finish(current: StoredSession) {
     writeSession({
-      workoutId: current.workoutId,
-      startedAt: current.startedAt,
-      index: current.index,
-      setIndex: current.setIndex,
-      endedAt: clock(),
+      workoutId: workout.id,
+      startedAt: Date.now(),
+      index: 0,
+      setIndex: 0,
+      sessionId: randomUUID(),
+      loads: {},
+      sets: [],
     })
   }
 
-  // Série terminée : on passe à la suivante (ou à l'exercice suivant) et le repos démarre
+  function start() {
+    // Une autre séance est déjà en cours (ou terminée sans être enregistrée) : on demande avant de la remplacer
+    if (stored && stored.workoutId !== workout.id && !stored.logged) {
+      Alert.alert(
+        'Une séance est déjà en cours',
+        stored.endedAt
+          ? 'Une autre séance est terminée mais pas enregistrée. La remplacer la supprimera.'
+          : 'La remplacer fera perdre son chrono et sa progression.',
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Remplacer', style: 'destructive', onPress: begin },
+        ]
+      )
+      return
+    }
+    begin()
+  }
+
+  function finish(current: StoredSession) {
+    writeSession({ ...withoutRest(current), endedAt: clock() })
+  }
+
+  // Série terminée : on la note avec la charge du moment, puis on passe à la suivante (ou à l'exercice suivant) et le repos démarre
   function completeSet() {
     if (!session) return
     const block = blocks[session.index]
     const lastSet = session.setIndex + 1 >= groupSets(block)
     const lastExercise = session.index + 1 >= total
+    const sets: LoggedSet[] = [
+      ...session.sets,
+      ...block.map((e) => ({
+        exercise_id: e.exercise_id,
+        set_number: session.setIndex + 1,
+        reps: e.target_reps,
+        weight_kg: currentLoad(e),
+      })),
+    ]
 
     if (lastSet && lastExercise) {
-      finish(session)
+      finish({ ...session, sets })
       return
     }
 
     const next = lastSet
       ? { index: session.index + 1, setIndex: 0 }
       : { index: session.index, setIndex: session.setIndex + 1 }
-    const base = { workoutId: session.workoutId, startedAt: session.startedAt, ...next }
+    const base: StoredSession = { ...withoutRest(session), ...next, sets }
 
     // Repos une seule fois par tour : après le dernier exercice du bloc
     const rest = groupRest(block)
     const at = clock()
     setNow(at)
     writeSession(rest > 0 ? { ...base, restEndsAt: at + rest * 1000, restSeconds: rest } : base)
+
+    // Notification « Repos terminé », déclenchée par le système même téléphone verrouillé
+    if (rest > 0) {
+      const nextBlock = blocks[next.index]
+      const label = nextBlock.length > 1 ? `${joinNames(nextBlock)} en superset` : nextBlock[0].name
+      scheduleRestEnd(rest, `À suivre : ${label} · série ${next.setIndex + 1} sur ${groupSets(nextBlock)}`)
+    }
   }
 
   function endRest() {
     if (!session) return
-    writeSession({
-      workoutId: session.workoutId,
-      startedAt: session.startedAt,
-      index: session.index,
-      setIndex: session.setIndex,
-    })
+    cancelRestNotification()
+    writeSession(withoutRest(session))
   }
 
   function jumpToExercise(index: number) {
     if (!session) return
-    writeSession({ workoutId: session.workoutId, startedAt: session.startedAt, index, setIndex: 0 })
+    writeSession({ ...withoutRest(session), index, setIndex: 0 })
+  }
+
+  // Surcharge progressive : la nouvelle charge s'applique aux séries suivantes et reste la référence de la prochaine séance
+  function setLoad(exercise: SessionExercise, kg: number) {
+    if (!session) return
+    writeSession({ ...session, loads: { ...session.loads, [exercise.exercise_id]: kg } })
   }
 
   function confirmDiscard(title: string, message: string, action: string) {
     Alert.alert(title, message, [
       { text: 'Continuer', style: 'cancel' },
-      { text: action, style: 'destructive', onPress: () => writeSession(null) },
+      {
+        text: action,
+        style: 'destructive',
+        onPress: () => {
+          cancelRestNotification()
+          writeSession(null)
+        },
+      },
     ])
   }
 
@@ -150,6 +222,8 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         workoutId: workout.id,
         durationSeconds: Math.round(durationMs / 1000),
         weightKg: typedWeight,
+        sessionId: session.sessionId || undefined,
+        sets: session.sets,
       })
       setSaving(false)
 
@@ -164,6 +238,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           minutes: result.minutes,
           badges: result.badges,
           badgesError: result.badgesError,
+          setsError: result.setsError,
         },
       })
       onSaved?.()
@@ -197,6 +272,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               {session.logged.badgesError ? (
                 <Text className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                   Les badges n&apos;ont pas pu être calculés : {session.logged.badgesError}
+                </Text>
+              ) : null}
+
+              {session.logged.setsError ? (
+                <Text className="w-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Les charges n&apos;ont pas pu être enregistrées : {session.logged.setsError}
                 </Text>
               ) : null}
 
@@ -388,7 +469,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         {header}
 
         {isSuperset ? (
-          <View className={`gap-4 p-5 ${glassClass}`}>
+          <View className={`gap-2.5 px-5 pb-5 pt-2.5 ${glassClass}`}>
             <View className="gap-1">
               <View className="flex-row items-center gap-1.5">
                 <Ionicons name="link" size={16} color={accent} />
@@ -396,21 +477,28 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
                   Superset · {block.length} exercices enchaînés
                 </Text>
               </View>
-              <Text className="text-sm text-gray-600 dark:text-zinc-400">{joinNames(block)} en superset</Text>
             </View>
 
             <View className="gap-4">
               {block.map((e, i) => (
                 <View key={i} className="gap-2 rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
-                  <View>
-                    <Text className="font-display-xb text-3xl uppercase leading-none text-gray-900 dark:text-white">
-                      {e.name}
-                    </Text>
-                    <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
-                      {e.muscle_group} · {e.equipment}
-                      {repsDiffer ? ` · ${e.target_reps === null ? 'max' : e.target_reps} reps` : ''}
-                    </Text>
-                  </View>
+                  <LoadControl
+                    exercise={e}
+                    info={infos[e.exercise_id]}
+                    value={currentLoad(e)}
+                    onChange={(kg) => setLoad(e, kg)}
+                    header={
+                      <View>
+                        <Text className="font-display-xb text-3xl uppercase leading-none text-gray-900 dark:text-white">
+                          {e.name}
+                        </Text>
+                        <Text className="mt-1 text-xs text-gray-500 dark:text-zinc-400">
+                          {e.muscle_group} · {e.equipment}
+                          {repsDiffer ? ` · ${e.target_reps === null ? 'max' : e.target_reps} reps` : ''}
+                        </Text>
+                      </View>
+                    }
+                  />
 
                   {e.description ? (
                     <Text className="text-sm text-gray-600 dark:text-zinc-400">{e.description}</Text>
@@ -457,14 +545,23 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           </View>
         ) : (
           <View className={`gap-4 p-5 ${glassClass}`}>
-            <View>
-              <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">
-                {exercise.name}
-              </Text>
-              <Text className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
-                {exercise.muscle_group} · {exercise.equipment}
-              </Text>
-            </View>
+            <LoadControl
+              large
+              exercise={exercise}
+              info={infos[exercise.exercise_id]}
+              value={currentLoad(exercise)}
+              onChange={(kg) => setLoad(exercise, kg)}
+              header={
+                <View>
+                  <Text className="font-display-xb text-4xl uppercase leading-none text-gray-900 dark:text-white">
+                    {exercise.name}
+                  </Text>
+                  <Text className="mt-1 text-sm text-gray-500 dark:text-zinc-400">
+                    {exercise.muscle_group} · {exercise.equipment}
+                  </Text>
+                </View>
+              }
+            />
 
             <View className="flex-row gap-3">
               <View className="flex-1 items-center rounded-lg bg-blue-50 py-3">
@@ -594,9 +691,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           {blocks.map((block, b) => {
             const start = blocks.slice(0, b).reduce((n, g) => n + g.length, 0)
             return block.length === 1 ? (
-              <ExerciseRow key={b} exercise={block[0]} position={start + 1} />
+              <ExerciseRow key={b} exercise={block[0]} position={start + 1} infos={infos} />
             ) : (
-              <SupersetGroup key={b} block={block} start={start} />
+              <SupersetGroup key={b} block={block} start={start} infos={infos} />
             )
           })}
         </View>
@@ -624,16 +721,21 @@ function ExerciseRow({
   position,
   bare = false,
   group,
+  infos,
+  followsLabel = false,
 }: {
+  // Exercice qui suit un autre dans un superset : un peu d'espace en plus pour l'étiquette « SUPERSET » posée sur le trait
+  followsLabel?: boolean
   exercise: SessionExercise
   position: number
+  // Charge de chaque exercice (affichée en bas à gauche de la carte)
+  infos: Record<string, ExerciseLoadInfo>
   // Dans un bloc superset : pas de cadre
   bare?: boolean
   // Premier exercice d'un superset : la pastille et le repos sont ceux du groupe, comme un exercice normal
   group?: SessionExercise[]
 }) {
   const [open, setOpen] = useState(false)
-  const dark = useColorScheme() === 'dark'
 
   return (
     <View className={bare ? 'overflow-hidden' : `overflow-hidden ${glassClass}`}>
@@ -641,13 +743,19 @@ function ExerciseRow({
         onPress={() => setOpen((value) => !value)}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
-        className={`flex-row items-center active:bg-gray-100 dark:active:bg-zinc-800 ${bare ? 'min-h-[88px]' : ''}`}
+        className={`flex-row items-start active:bg-gray-100 dark:active:bg-zinc-800 ${bare ? 'min-h-[88px]' : ''}`}
       >
         <ExerciseThumb url={exercise.thumbnail_url} />
-        <View className="shrink flex-1 gap-1.5 px-3 pb-7 pt-2">
-          <Text className="text-base font-semibold text-gray-900 dark:text-white">
-            {String(position).padStart(2, '0')}. {exercise.name}
-          </Text>
+        <View className={`shrink flex-1 gap-1 px-2.5 pb-2 ${followsLabel ? 'pt-3.5' : 'pt-2'}`}>
+          {/* Nom à gauche, charge à prévoir en haut à droite sur la même ligne */}
+          <View className="flex-row items-start justify-between gap-2">
+            <Text className="shrink flex-1 text-base font-semibold text-gray-900 dark:text-white">
+              {position}. {exercise.name}
+            </Text>
+            <Text className="text-base font-bold text-gray-900 dark:text-white" numberOfLines={1}>
+              {loadLabel(exercise, infos[exercise.exercise_id])}
+            </Text>
+          </View>
           {/* Série et repos sur la même ligne */}
           {group ? (
             <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -661,21 +769,25 @@ function ExerciseRow({
             </View>
           )}
         </View>
-        {/* Flèche dans le coin : elle ne prend plus de place à côté du texte */}
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: 8, right: 12 }}>
-          <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={dark ? '#8b9bb0' : '#94a3b8'} />
-        </View>
       </Pressable>
 
       {open ? (
-        <DetailsPanel exercise={exercise} />
+        <DetailsPanel exercise={exercise} info={infos[exercise.exercise_id]} />
       ) : null}
     </View>
   )
 }
 
 // Un superset dans l'aperçu : un seul bloc. Les exercices sont au-dessus, puis séries, répétitions et repos une seule fois.
-function SupersetGroup({ block, start }: { block: SessionExercise[]; start: number }) {
+function SupersetGroup({
+  block,
+  start,
+  infos,
+}: {
+  block: SessionExercise[]
+  start: number
+  infos: Record<string, ExerciseLoadInfo>
+}) {
   return (
     <View className={`overflow-hidden ${glassClass}`}>
       <View className="absolute bottom-0 left-0 top-0 z-10 w-1 bg-blue-600" />
@@ -694,7 +806,14 @@ function SupersetGroup({ block, start }: { block: SessionExercise[]; start: numb
                 </View>
               </View>
             ) : null}
-            <ExerciseRow exercise={exercise} position={start + i + 1} bare group={i === 0 ? block : undefined} />
+            <ExerciseRow
+              exercise={exercise}
+              position={start + i + 1}
+              bare
+              group={i === 0 ? block : undefined}
+              infos={infos}
+              followsLabel={i > 0}
+            />
           </View>
         ))}
       </View>
@@ -703,7 +822,7 @@ function SupersetGroup({ block, start }: { block: SessionExercise[]; start: numb
 }
 
 // Description d'un exercice (aperçu) : en haut à droite, un bouton vidéo ; sans vidéo, la mention « Pas de vidéo »
-function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
+function DetailsPanel({ exercise, info }: { exercise: SessionExercise; info: ExerciseLoadInfo | undefined }) {
   const accent = useAccent()
   const [showVideo, setShowVideo] = useState(false)
   return (
@@ -717,7 +836,7 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
             onPress={() => setShowVideo((value) => !value)}
             accessibilityRole="button"
             accessibilityState={{ expanded: showVideo }}
-            className="flex-row items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 active:opacity-60"
+            className="-mt-1.5 flex-row items-center gap-1.5 rounded-full border border-blue-600/40 bg-blue-50 px-2.5 py-1 active:opacity-60"
           >
             <Ionicons name="videocam-outline" size={16} color={accent} />
             <Text className="text-xs font-semibold text-blue-700">{showVideo ? 'Masquer la vidéo' : 'Vidéo'}</Text>
@@ -727,7 +846,7 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
             accessibilityRole="button"
             accessibilityLabel="Pas de vidéo"
             accessibilityState={{ disabled: true }}
-            className="flex-row items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800"
+            className="-mt-1.5 flex-row items-center rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 dark:border-zinc-700 dark:bg-zinc-800"
           >
             <Ionicons name="videocam-off-outline" size={16} color="#94a3b8" />
           </View>
@@ -736,6 +855,24 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
       <Text className="text-sm text-gray-600 dark:text-zinc-400">
         {exercise.description ?? 'Pas de description pour cet exercice.'}
       </Text>
+
+      {/* Charge de chaque série à la dernière séance */}
+      <View>
+        {info && info.lastSets.length > 0 ? (
+          <View className="flex-row flex-wrap gap-1.5">
+            {info.lastSets.map((set) => (
+              <Text
+                key={set.set_number}
+                className="overflow-hidden rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+              >
+                {set.weight_kg > 0 ? formatLoad(set.weight_kg) : exercise.equipment === 'PDC' ? 'PDC' : '-'}
+              </Text>
+            ))}
+          </View>
+        ) : (
+          <Text className="text-sm text-gray-500 dark:text-zinc-400">Aucune séance enregistrée pour cet exercice.</Text>
+        )}
+      </View>
       {showVideo && exercise.video_url ? <ExerciseMedia url={exercise.video_url} name={exercise.name} /> : null}
     </View>
   )
@@ -770,4 +907,12 @@ function joinNames(block: SessionExercise[]): string {
 
 function repsText(exercise: SessionExercise): string {
   return exercise.target_reps === null ? 'max de répétitions (jusqu’à l’échec)' : `${exercise.target_reps} répétitions`
+}
+
+// Charge à prévoir : « 40 kg », « PDC » (poids du corps) ou « - » quand il n'y en a pas
+function loadLabel(exercise: SessionExercise, info: ExerciseLoadInfo | undefined): string {
+  const bodyweight = exercise.equipment === 'PDC'
+  const kg = info?.weight_kg ?? null
+  if (kg === null || kg <= 0) return bodyweight ? 'PDC' : '-'
+  return formatLoad(kg, bodyweight)
 }

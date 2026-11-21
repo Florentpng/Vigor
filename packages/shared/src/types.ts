@@ -18,6 +18,7 @@ export type Workout = {
 }
 
 export type SessionExercise = {
+  exercise_id: string
   name: string
   description: string | null
   muscle_group: string
