@@ -38,6 +38,16 @@ function ScaleIcon() {
   )
 }
 
+// Médaille
+function MedalIcon() {
+  return (
+    <svg {...iconProps}>
+      <circle cx="12" cy="14" r="6" />
+      <path d="M9 3h6l-1.5 5M9 3l1.5 5M12 11.5v5M10 14h4" />
+    </svg>
+  )
+}
+
 function ShieldIcon() {
   return (
     <svg {...iconProps}>
@@ -114,8 +124,12 @@ export default function UserMenu({
         className="group flex items-center gap-3 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 cursor-pointer"
       >
         <span className="hidden text-right leading-tight sm:block">
-          {name && <span className="block text-sm font-bold text-gray-900">{name}</span>}
-          <span className="block max-w-48 truncate text-xs text-gray-500">{email}</span>
+          {/* Le nom, s'il est renseigné ; sinon l'adresse mail */}
+          {name ? (
+            <span className="block max-w-48 truncate text-sm font-bold text-gray-900">{name}</span>
+          ) : (
+            <span className="block max-w-48 truncate text-xs text-gray-500">{email}</span>
+          )}
         </span>
         <span className="flex h-11 w-11 items-center justify-center transition duration-150 group-hover:scale-110 group-hover:brightness-110">
           <Image src={userMark} alt="" className="h-full w-full scale-110 object-contain" />
@@ -146,6 +160,16 @@ export default function UserMenu({
             >
               <ScaleIcon />
               Suivi
+            </Link>
+
+            <Link
+              href="/badges"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={itemClass('/badges', 'text-gray-700')}
+            >
+              <MedalIcon />
+              Badges
             </Link>
 
             {isAdmin && (

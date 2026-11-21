@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import NavLinks from '@/components/nav-links'
 import UserMenu from '@/components/user-menu'
+import { fullName, getIdentity } from '@vigor/shared/profile'
 import { userName } from '@/lib/user-name'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="justify-self-end col-start-3">
             <UserMenu
               email={user.email ?? ''}
-              name={userName(user.user_metadata)}
+              name={fullName(await getIdentity(supabase, user.id)) ?? userName(user.user_metadata)}
               isAdmin={Boolean(profile?.is_admin)} />
           </div>
         </div>      </header>

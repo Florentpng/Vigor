@@ -42,6 +42,8 @@ export default function AppLayout() {
         name="suivi"
         options={{ title: 'Suivi', tabBarIcon: tabIcon('stats-chart', 'stats-chart-outline') }}
       />
+      {/* Écran Badges : ouvert depuis le Profil, sans onglet */}
+      <Tabs.Screen name="badges" options={{ href: null }} />
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profil', tabBarIcon: tabIcon('person', 'person-outline') }}

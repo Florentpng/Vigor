@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker'
 import { useState } from 'react'
-import { Alert, Platform, Pressable, Text, TextInput, View } from 'react-native'
+import { Alert, Platform, Pressable, ScrollView, Text, TextInput, useColorScheme, View } from 'react-native'
 
+import { getHistory, getHistoryTotals } from '@vigor/shared/queries'
 import { deleteWeightEntry, getTodayDate, getWeightEntries, saveWeightEntry, type WeightEntry } from '@vigor/shared/weights'
 
 import { Button, Card, ErrorBox, glassClass, inputClass, Label, Loading, Muted, Screen, SectionTitle, Title } from '@/components/ui'
@@ -11,6 +12,14 @@ import { supabase } from '@/lib/supabase'
 import WeightChart from '@/components/weight-chart'
 import { useAccent } from '@/lib/theme'
 import { useFocusQuery } from '@/lib/use-focus-query'
+
+// 45 -> "45 min", 135 -> "2 h 15"
+function formatTotalMinutes(minutes: number) {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} h` : `${hours} h ${String(rest).padStart(2, '0')}`
+}
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -38,16 +47,47 @@ function formatTime(value: string) {
 // Suivi du poids : une pesée par jour, la plus récente sert au calcul des calories
 export default function WeightScreen() {
   const userId = useUserId()
-  const { data, loading, refreshing, refresh, error } = useFocusQuery(() => getWeightEntries(supabase, userId))
+  const dark = useColorScheme() === 'dark'
+  const accent = useAccent()
+  const flame = dark ? '#fb923c' : '#ea580c'
+
+  const { data, loading, refreshing, refresh, error } = useFocusQuery(async () => {
+    const [weights, history, totals] = await Promise.all([
+      getWeightEntries(supabase, userId),
+      getHistory(supabase, userId),
+      getHistoryTotals(supabase, userId),
+    ])
+    return { weights, history, totals: totals.data }
+  })
 
   if (loading) return <Loading />
 
-  const entries = data?.data ?? []
-  const errorMessage = error ?? data?.error
+  const entries = data?.weights.data ?? []
+  const history = data?.history.data ?? []
+  const totals = data?.totals ?? { sessions: 0, minutes: 0, calories: 0 }
+  const errorMessage = error ?? data?.weights.error ?? data?.history.error
 
   return (
     <Screen refreshing={refreshing} onRefresh={refresh}>
       <Title>Suivi</Title>
+
+      <View className="flex-row gap-3">
+        <StatTile
+          icon={<Ionicons name="barbell-outline" size={24} color={accent} />}
+          value={String(totals.sessions)}
+          label={totals.sessions > 1 ? 'Séances' : 'Séance'}
+        />
+        <StatTile
+          icon={<Ionicons name="timer-outline" size={24} color={accent} />}
+          value={formatTotalMinutes(totals.minutes)}
+          label="Temps total"
+        />
+        <StatTile
+          icon={<Ionicons name="flame" size={28} color={flame} />}
+          value={String(totals.calories)}
+          label="kcal brûlées"
+        />
+      </View>
 
       <WeightForm onSaved={refresh} />
 
@@ -63,6 +103,48 @@ export default function WeightScreen() {
           <Card className="pt-2">
             <WeightChart entries={[...entries].reverse()} />
           </Card>
+        )}
+      </View>
+
+      <View className="gap-3">
+        <SectionTitle>Séances effectuées</SectionTitle>
+        {history.length === 0 ? (
+          <Muted>Aucune séance enregistrée pour l&apos;instant.</Muted>
+        ) : (
+          // Hauteur limitée : seul ce bloc défile (barre visible), la page ne s'allonge pas avec le nombre de séances
+          <ScrollView
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+            persistentScrollbar
+            style={{ maxHeight: 440 }}
+            contentContainerClassName="gap-3 pr-1"
+          >
+            {history.map((log) => (
+              <View key={log.id} className={`flex-row items-center justify-between gap-3 px-4 py-3 ${glassClass}`}>
+                <View className="shrink">
+                  <Text className="font-semibold text-gray-900 dark:text-white">{log.workout_name ?? 'Séance supprimée'}</Text>
+                  <Text className="text-xs text-gray-500 dark:text-zinc-400">
+                    {new Date(log.completed_at).toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      timeZone: 'Europe/Paris',
+                    })}
+                  </Text>
+                </View>
+                <View className="items-end gap-0.5">
+                  <View className="flex-row items-center gap-1.5">
+                    <Ionicons name="timer-outline" size={16} color={accent} />
+                    <Text className="text-sm text-gray-600 dark:text-zinc-400">{log.duration_minutes} min</Text>
+                  </View>
+                  <View className="flex-row items-center gap-1.5">
+                    <Ionicons name="flame" size={16} color={flame} />
+                    <Text className="text-sm text-orange-600 dark:text-orange-400">{Math.round(log.calories_burned)} kcal</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
         )}
       </View>
     </Screen>
@@ -216,5 +298,15 @@ function EntryRow({ entry, first, onDeleted }: { entry: WeightEntry; first: bool
         <Ionicons name="trash-outline" size={20} color="#dc2626" />
       </Pressable>
     </View>
+  )
+}
+
+function StatTile({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return (
+    <Card className="flex-1 items-center px-2">
+      {icon}
+      <Text className="mt-1 font-display text-3xl text-gray-900 dark:text-white">{value}</Text>
+      <Text className="text-center text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-zinc-400">{label}</Text>
+    </Card>
   )
 }
