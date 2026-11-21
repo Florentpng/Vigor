@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { WEEKDAYS } from '@vigor/shared/constants'
 import { getTodayWeekday } from '@vigor/shared/format'
+import { getExerciseLoads } from '@vigor/shared/loads'
 import { getPlannedWorkoutId, getProfile, getWorkoutCards } from '@vigor/shared/queries'
 import { getSessionWorkout } from '@vigor/shared/workouts'
 import SessionRunner from './session-runner'
@@ -30,11 +31,15 @@ export default async function HomePage({
   const workout = workoutId ? await getSessionWorkout(supabase, workoutId) : null
 
   if (workout) {
-    const profile = await getProfile(supabase, userId)
+    const [profile, loads] = await Promise.all([
+      getProfile(supabase, userId),
+      getExerciseLoads(supabase, userId, workout.exercises.map((e) => e.exercise_id)),
+    ])
 
     return (
       <SessionRunner
         weightKg={profile.weight_kg}
+        loads={loads}
         workout={workout}
         heading={chosenId ? `Séance choisie pour ${todayLabel.toLowerCase()}` : `${todayLabel} · séance du jour`}
         showPlannedLink={Boolean(chosenId)}

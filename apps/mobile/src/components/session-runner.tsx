@@ -13,7 +13,7 @@ import {
   formatRestTime,
   parseWorkoutTitle,
 } from '@vigor/shared/format'
-import { type ExerciseLoadInfo, formatLoad, getExerciseLoads, type LoggedSet } from '@vigor/shared/loads'
+import { type ExerciseLoadInfo, formatLoad, getExerciseLoads, lastLoadForSet, type LoggedSet } from '@vigor/shared/loads'
 import { saveWorkoutLog } from '@vigor/shared/logs'
 import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
@@ -68,14 +68,18 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
   const userId = useUserId()
 
   // Charge de travail de chaque exercice et nombre de séances à cette charge
-  const { data: loadData } = useFocusQuery(
+  const { data: loadData, refresh: refreshLoads } = useFocusQuery(
     () => getExerciseLoads(supabase, userId, workout.exercises.map((e) => e.exercise_id)),
     workout.id
   )
   const infos: Record<string, ExerciseLoadInfo> = loadData ?? {}
   // Charge actuelle d'un exercice : celle choisie pendant la séance, sinon la charge de référence
+  // Par défaut : la charge de cette même série à la dernière séance (séries en pyramide), sinon la charge de référence
   const currentLoad = (exercise: SessionExercise) =>
-    session?.loads[exercise.exercise_id] ?? infos[exercise.exercise_id]?.weight_kg ?? 0
+    session?.loads[exercise.exercise_id] ??
+    lastLoadForSet(infos[exercise.exercise_id], (session?.setIndex ?? 0) + 1) ??
+    infos[exercise.exercise_id]?.weight_kg ??
+    0
 
   const [now, setNow] = useState(() => Date.now())
   const [saving, setSaving] = useState(false)
@@ -241,6 +245,8 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           setsError: result.setsError,
         },
       })
+      // Les séances à cette charge viennent d'augmenter : on recharge le compteur (sinon il reste figé tant qu'on ne quitte pas l'écran)
+      refreshLoads()
       onSaved?.()
     }
 
@@ -483,6 +489,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               {block.map((e, i) => (
                 <View key={i} className="gap-2 rounded-lg border border-gray-200 p-3 dark:border-zinc-700">
                   <LoadControl
+                    setNumber={setNumber}
                     exercise={e}
                     info={infos[e.exercise_id]}
                     value={currentLoad(e)}
@@ -547,6 +554,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           <View className={`gap-4 p-5 ${glassClass}`}>
             <LoadControl
               large
+              setNumber={setNumber}
               exercise={exercise}
               info={infos[exercise.exercise_id]}
               value={currentLoad(exercise)}

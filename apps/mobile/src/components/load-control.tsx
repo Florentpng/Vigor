@@ -1,12 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { Modal, Pressable, Text, TextInput, View } from 'react-native'
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
 
 import {
   type ExerciseLoadInfo,
   formatLoad,
   isValidLoad,
+  lastLoadForSet,
   LOAD_STEPS,
   SUGGEST_AFTER_SESSIONS,
 } from '@vigor/shared/loads'
@@ -25,8 +25,11 @@ export default function LoadControl({
   info,
   value,
   onChange,
+  setNumber,
   large = false,
 }: {
+  // Numéro de la série en cours : la comparaison se fait avec la même série de la dernière séance
+  setNumber: number
   // Exercice seul (grand titre) : charge plus grande que dans un superset
   large?: boolean
   header: ReactNode
@@ -43,17 +46,22 @@ export default function LoadControl({
   const known = info?.weight_kg ?? null
   const unchanged = known !== null && value === known
   const past = unchanged ? (info?.sessions ?? 0) : 0
-  const suggest = unchanged && past >= SUGGEST_AFTER_SESSIONS && (value > 0 || bodyweight)
+  // Pas de suggestion de surcharge pour les exercices au poids du corps (PDC)
+  const suggest = unchanged && past >= SUGGEST_AFTER_SESSIONS && !bodyweight && value > 0
 
   // Charge plus lourde qu'à la dernière séance : effet de flèches derrière la valeur
-  const previous = info && info.lastSets.length > 0 ? Math.max(...info.lastSets.map((set) => set.weight_kg)) : null
+  const previous = lastLoadForSet(info, setNumber)
   const increased = previous !== null && value > previous
+  const decreased = previous !== null && value < previous
+  // Écart avec la dernière séance, affiché sous la charge
+  const delta = increased || decreased ? round(Math.abs(value - (previous ?? 0))) : 0
 
   let status: string | null = null
   if (known === null && value === 0) {
     status = bodyweight ? 'Au poids du corps : ajoute un lest si besoin.' : 'Pas encore de charge : renseigne-la.'
   } else if (unchanged) {
-    status = past > 0 ? `${past} séance${past > 1 ? 's' : ''} de suite à cette charge.` : 'Première séance à cette charge.'
+    // Pas de « 1 séance » : le compteur ne s'affiche qu'à partir de 2
+    status = past > 1 ? `${past} séances de suite à cette charge.` : past === 1 ? null : 'Première séance à cette charge.'
   }
 
   const format = (kg: number) => (kg > 0 ? String(kg).replace('.', ',') : '')
@@ -95,19 +103,27 @@ export default function LoadControl({
         className="items-end active:opacity-60"
       >
         <View className="flex-row items-center gap-1">
-          {increased ? <RiseArrows large={large} /> : null}
           {suggest ? <Ionicons name="arrow-up-circle" size={large ? 22 : 18} color={accent} /> : null}
           <Text
-              className={`font-display text-gray-900 dark:text-white ${large ? 'text-4xl' : 'text-3xl'}`}
-              numberOfLines={1}
-            >
+            className={`font-display text-gray-900 dark:text-white ${large ? 'text-4xl' : 'text-3xl'}`}
+            numberOfLines={1}
+          >
             {formatLoad(value, bodyweight)}
           </Text>
         </View>
-        {unchanged && past > 0 ? (
-          <Text className="text-xs text-gray-500 dark:text-zinc-400">
-            {past} séance{past > 1 ? 's' : ''}
-          </Text>
+        {/* Charge différente de la dernière séance : l'écart, sous la charge (accent si plus lourde, gris si plus légère) */}
+        {increased || decreased ? (
+          <View
+            className={`mt-0.5 flex-row items-center gap-0.5 rounded-full px-2 py-0.5 ${
+              increased ? 'bg-blue-600' : 'bg-gray-500 dark:bg-zinc-600'
+            }`}
+          >
+            <Ionicons name={increased ? 'arrow-up' : 'arrow-down'} size={11} color="#ffffff" />
+            <Text className="text-xs font-bold text-white">
+              {increased ? '+' : '−'}
+              {formatLoad(delta)}
+            </Text>
+          </View>
         ) : null}
       </Pressable>
 
@@ -146,6 +162,7 @@ export default function LoadControl({
             </View>
 
             <View className="flex-row items-center gap-2">
+              <StepButton label="−10" disabled={(draft() ?? value) <= 0} onPress={() => step(-LOAD_STEPS[1])} />
               <StepButton label="−2,5" disabled={(draft() ?? value) <= 0} onPress={() => step(-LOAD_STEPS[0])} />
               <StepButton label="+2,5" highlight={suggest} onPress={() => step(LOAD_STEPS[0])} />
               <StepButton label="+10" onPress={() => step(LOAD_STEPS[1])} />
@@ -187,32 +204,5 @@ function StepButton({
     >
       <Text className={`text-sm font-bold ${highlight ? 'text-white' : 'text-gray-800 dark:text-zinc-100'}`}>{label}</Text>
     </Pressable>
-  )
-}
-
-// Flèches vers le haut, très transparentes, qui montent doucement derrière la charge quand elle a augmenté
-function RiseArrows({ large }: { large: boolean }) {
-  const accent = useAccent()
-  const progress = useSharedValue(0)
-
-  // Boucle douce : aller-retour de 0 à 1
-  useEffect(() => {
-    progress.set(withRepeat(withSequence(withTiming(1, { duration: 1400 }), withTiming(0, { duration: 1400 })), -1))
-  }, [progress])
-
-  const style = useAnimatedStyle(() => ({
-    opacity: 0.1 + progress.get() * 0.2,
-    transform: [{ translateY: 6 - progress.get() * 12 }],
-  }))
-
-  const size = large ? 34 : 26
-  return (
-    <View pointerEvents="none" className="absolute inset-0 flex-row items-center justify-around">
-      {[0, 1, 2].map((i) => (
-        <Animated.View key={i} style={style}>
-          <Ionicons name="arrow-up" size={size} color={accent} />
-        </Animated.View>
-      ))}
-    </View>
   )
 }

@@ -6,6 +6,10 @@ import { type LogInput, type LogResult, saveWorkoutLog as save } from '@vigor/sh
 
 export async function saveWorkoutLog(input: LogInput): Promise<LogResult> {
   const result = await save(await createClient(), input)
-  if ('ok' in result) revalidatePath('/profile')
+  if ('ok' in result) {
+    // Le Suivi (historique, charges) et l'accueil (compteur de séances à la même charge) changent
+    revalidatePath('/suivi')
+    revalidatePath('/')
+  }
   return result
 }

@@ -2,9 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { Card } from '@/components/ui/card'
 import { Collapsible } from '@/components/ui/collapsible'
 import { DumbbellIcon, FlameIcon, TimerIcon } from '@/components/ui/icons'
+import { getLoadHistory, getLoadSummaries, type LoadSession } from '@vigor/shared/loads'
 import { getHistory, getHistoryTotals } from '@vigor/shared/queries'
 import { getTodayDate, getWeightEntries } from '@vigor/shared/weights'
 import DeleteEntryButton from './delete-entry-button'
+import LoadsSection from './loads-section'
 import WeightChart from './weight-chart'
 import WeightForm from './weight-form'
 
@@ -51,11 +53,19 @@ export default async function WeightPage() {
   } = await supabase.auth.getUser()
 
   const userId = user?.id ?? ''
-  const [{ data: entries, error }, { data: history, error: historyError }, { data: totals }] = await Promise.all([
+  const [{ data: entries, error }, { data: history, error: historyError }, { data: totals }, loads] = await Promise.all([
     getWeightEntries(supabase, userId),
     getHistory(supabase, userId),
     getHistoryTotals(supabase, userId),
+    getLoadSummaries(supabase, userId),
   ])
+  // Historique de chaque exercice pour sa courbe
+  const histories: Record<string, LoadSession[]> = {}
+  await Promise.all(
+    loads.data.map(async (item) => {
+      histories[item.exercise_id] = (await getLoadHistory(supabase, userId, item.exercise_id)).data
+    })
+  )
 
   return (
     <div className="space-y-6">
@@ -140,6 +150,8 @@ export default async function WeightPage() {
 
       {error && <div className="p-3 bg-red-100 text-red-700 rounded-lg text-sm">{error}</div>}
 
+
+      <LoadsSection loads={loads.data} histories={histories} />
 
       <Collapsible title="Séances effectuées">
         {historyError && <div className="m-3 p-3 bg-red-100 text-red-700 rounded-lg text-sm">{historyError}</div>}

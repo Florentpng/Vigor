@@ -28,8 +28,10 @@ import {
   formatRestTime,
   parseWorkoutTitle,
 } from '@vigor/shared/format'
+import { type ExerciseLoadInfo, formatLoad, lastLoadForSet, type LoggedSet } from '@vigor/shared/loads'
 import { groupRepsLabel, groupRest, groupSets, groupSupersets } from '@vigor/shared/supersets'
 import type { SessionExercise, SessionWorkout } from '@vigor/shared/types'
+import LoadControl from './load-control'
 import { saveWorkoutLog } from './actions'
 
 type StoredSession = {
@@ -40,12 +42,16 @@ type StoredSession = {
   restEndsAt?: number // présent pendant un repos
   restSeconds?: number // durée totale du repos en cours
   endedAt?: number
+  sessionId: string // regroupe les séries de la séance au moment de l'enregistrement
+  loads: Record<string, number> // charge choisie pendant la séance, par exercice
+  sets: LoggedSet[] // séries déjà terminées (charge et répétitions)
   // présent une fois la séance enregistrée
   logged?: {
     calories: number
     minutes: number
     badges?: { code?: string; title: string; description: string }[]
     badgesError?: string
+    setsError?: string
   }
 }
 
@@ -99,14 +105,21 @@ function parseSession(raw: string | null): StoredSession | null {
     ) {
       return null
     }
-    return { ...value, setIndex: typeof value.setIndex === 'number' ? value.setIndex : 0 }
+    return {
+      ...value,
+      setIndex: typeof value.setIndex === 'number' ? value.setIndex : 0,
+      // Séance commencée avant l'arrivée des charges : pas de série à enregistrer
+      sessionId: typeof value.sessionId === 'string' ? value.sessionId : '',
+      loads: value.loads && typeof value.loads === 'object' ? value.loads : {},
+      sets: Array.isArray(value.sets) ? value.sets : [],
+    }
   } catch {
     return null
   }
 }
 
 // Description d'un exercice (aperçu) : en haut à droite, un bouton vidéo ; sans vidéo, la mention « Pas de vidéo »
-function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
+function DetailsPanel({ exercise, info }: { exercise: SessionExercise; info: ExerciseLoadInfo | undefined }) {
   const [showVideo, setShowVideo] = useState(false)
   return (
     <div className="bg-gray-50 border-t px-4 py-4 space-y-3 text-sm">
@@ -140,6 +153,21 @@ function DetailsPanel({ exercise }: { exercise: SessionExercise }) {
         <p className="text-gray-600">{exercise.description}</p>
       ) : (
         <p className="text-gray-500">Pas de description pour cet exercice.</p>
+      )}
+      {/* Charge de chaque série à la dernière séance */}
+      {info && info.lastSets.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {info.lastSets.map((set) => (
+            <span
+              key={set.set_number}
+              className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800"
+            >
+              {set.weight_kg > 0 ? formatLoad(set.weight_kg) : exercise.equipment === 'PDC' ? 'PDC' : '-'}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-gray-500">Aucune séance enregistrée pour cet exercice.</p>
       )}
       {showVideo && <ExerciseMedia exercise={exercise} />}
     </div>
@@ -176,6 +204,15 @@ function ExecutionToggle({ exercise }: { exercise: SessionExercise }) {
       {open && <ExerciseMedia exercise={exercise} />}
     </div>
   )
+}
+
+// Identifiant de séance : randomUUID n'existe que sur https / localhost, d'où le repli
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
 }
 
 // Heure actuelle, lue dans les gestionnaires de clic (pas pendant l'affichage)
@@ -229,17 +266,34 @@ function ExerciseThumb({ exercise }: { exercise: SessionExercise }) {
   )
 }
 
+// Séance sans la minuterie de repos
+function withoutRest(current: StoredSession): StoredSession {
+  const next = { ...current }
+  delete next.restEndsAt
+  delete next.restSeconds
+  return next
+}
+
 type Props = {
   workout: SessionWorkout
   heading: string
   showPlannedLink?: boolean
   weightKg: number | null
+  // Charge de travail de chaque exercice (par id d'exercice) et nombre de séances à cette charge
+  loads: Record<string, ExerciseLoadInfo>
 }
 
-export default function SessionRunner({ workout, heading, showPlannedLink, weightKg }: Props) {
+export default function SessionRunner({ workout, heading, showPlannedLink, weightKg, loads: infos }: Props) {
   const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const stored = useMemo(() => parseSession(raw), [raw])
   const session = stored && stored.workoutId === workout.id ? stored : null
+  // Charge actuelle d'un exercice : celle choisie pendant la séance, sinon la charge de référence
+  // Par défaut : la charge de cette même série à la dernière séance (séries en pyramide), sinon la charge de référence
+  const currentLoad = (exercise: SessionExercise) =>
+    session?.loads[exercise.exercise_id] ??
+    lastLoadForSet(infos[exercise.exercise_id], (session?.setIndex ?? 0) + 1) ??
+    infos[exercise.exercise_id]?.weight_kg ??
+    0
 
   const [now, setNow] = useState(() => Date.now())
   const [saving, startSaving] = useTransition()
@@ -274,33 +328,46 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
       if (!confirm(message)) return
     }
     setNow(Date.now())
-    writeSession({ workoutId: workout.id, startedAt: Date.now(), index: 0, setIndex: 0 })
+    writeSession({
+      workoutId: workout.id,
+      startedAt: Date.now(),
+      index: 0,
+      setIndex: 0,
+      sessionId: newId(),
+      loads: {},
+      sets: [],
+    })
   }
 
   const finish = (current: StoredSession) => {
-    writeSession({ workoutId: current.workoutId, startedAt: current.startedAt, index: current.index, setIndex: current.setIndex, endedAt: clock() })
+    writeSession({ ...withoutRest(current), endedAt: clock() })
   }
 
-  // Série terminée : on passe à la suivante (ou à l'exercice suivant) et le repos démarre
+  // Série terminée : on la note avec la charge du moment, puis on passe à la suivante (ou à l'exercice suivant) et le repos démarre
   const completeSet = () => {
     if (!session) return
     const block = blocks[session.index]
     const lastSet = session.setIndex + 1 >= groupSets(block)
     const lastExercise = session.index + 1 >= total
+    const sets: LoggedSet[] = [
+      ...session.sets,
+      ...block.map((e) => ({
+        exercise_id: e.exercise_id,
+        set_number: session.setIndex + 1,
+        reps: e.target_reps,
+        weight_kg: currentLoad(e),
+      })),
+    ]
 
     if (lastSet && lastExercise) {
-      finish(session)
+      finish({ ...session, sets })
       return
     }
 
     const next = lastSet
       ? { index: session.index + 1, setIndex: 0 }
       : { index: session.index, setIndex: session.setIndex + 1 }
-    const base = {
-      workoutId: session.workoutId,
-      startedAt: session.startedAt,
-      ...next,
-    }
+    const base: StoredSession = { ...withoutRest(session), ...next, sets }
 
     // Repos une seule fois par tour : après le dernier exercice du bloc
     const rest = groupRest(block)
@@ -311,17 +378,18 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
 
   const endRest = () => {
     if (!session) return
-    writeSession({
-      workoutId: session.workoutId,
-      startedAt: session.startedAt,
-      index: session.index,
-      setIndex: session.setIndex,
-    })
+    writeSession(withoutRest(session))
   }
 
   const jumpToExercise = (index: number) => {
     if (!session) return
-    writeSession({ workoutId: session.workoutId, startedAt: session.startedAt, index, setIndex: 0 })
+    writeSession({ ...withoutRest(session), index, setIndex: 0 })
+  }
+
+  // Surcharge progressive : la nouvelle charge s'applique aux séries suivantes et reste la référence de la prochaine séance
+  const setLoad = (exercise: SessionExercise, kg: number) => {
+    if (!session) return
+    writeSession({ ...session, loads: { ...session.loads, [exercise.exercise_id]: kg } })
   }
 
   // --- Séance terminée ---
@@ -338,6 +406,8 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           workoutId: workout.id,
           durationSeconds: Math.round(durationMs / 1000),
           weightKg: typedWeight,
+          sessionId: session.sessionId || undefined,
+          sets: session.sets,
         })
         if ('error' in result) {
           setSaveError(result.error)
@@ -350,6 +420,7 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             minutes: result.minutes,
             badges: result.badges,
             badgesError: result.badgesError,
+            setsError: result.setsError,
           },
         })
       })
@@ -376,6 +447,12 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
               </span>
               kcal brûlées
             </p>
+
+            {session.logged.setsError && (
+              <p className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm text-left">
+                Les charges n&apos;ont pas pu être enregistrées : {session.logged.setsError}
+              </p>
+            )}
 
             {session.logged.badgesError && (
               <p className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg text-sm text-left">
@@ -593,13 +670,22 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
             <div className="space-y-4">
               {block.map((e, i) => (
                 <div key={i} className="space-y-2 rounded-lg border p-3">
-                  <div>
-                    <h2 className="text-2xl font-extrabold text-gray-900">{e.name}</h2>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {e.muscle_group} · {e.equipment}
-                      {repsDiffer && ` · ${e.target_reps === null ? 'max' : e.target_reps} reps`}
-                    </p>
-                  </div>
+                  <LoadControl
+                    setNumber={setNumber}
+                    exercise={e}
+                    info={infos[e.exercise_id]}
+                    value={currentLoad(e)}
+                    onChange={(kg) => setLoad(e, kg)}
+                    header={
+                      <div>
+                        <h2 className="text-2xl font-extrabold text-gray-900">{e.name}</h2>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {e.muscle_group} · {e.equipment}
+                          {repsDiffer && ` · ${e.target_reps === null ? 'max' : e.target_reps} reps`}
+                        </p>
+                      </div>
+                    }
+                  />
 
                   {e.description && <p className="text-sm text-gray-600">{e.description}</p>}
 
@@ -632,12 +718,22 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
           </div>
         ) : (
           <div className="bg-white border rounded-xl p-5 shadow-sm space-y-4">
-            <div>
-              <h1 className="text-3xl font-extrabold text-gray-900">{exercise.name}</h1>
-              <p className="mt-1 text-sm text-gray-500">
-                {exercise.muscle_group} · {exercise.equipment}
-              </p>
-            </div>
+            <LoadControl
+              large
+              setNumber={setNumber}
+              exercise={exercise}
+              info={infos[exercise.exercise_id]}
+              value={currentLoad(exercise)}
+              onChange={(kg) => setLoad(exercise, kg)}
+              header={
+                <div>
+                  <h1 className="text-3xl font-extrabold text-gray-900">{exercise.name}</h1>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {exercise.muscle_group} · {exercise.equipment}
+                  </p>
+                </div>
+              }
+            />
 
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-blue-50 rounded-lg py-3">
@@ -742,9 +838,9 @@ export default function SessionRunner({ workout, heading, showPlannedLink, weigh
         <ol className="stagger space-y-3">
           {blocks.map((block, b) => {
             const start = blocks.slice(0, b).reduce((n, g) => n + g.length, 0)
-            if (block.length === 1) return <ExerciseRow key={b} exercise={block[0]} position={start + 1} />
+            if (block.length === 1) return <ExerciseRow key={b} exercise={block[0]} position={start + 1} infos={infos} />
 
-            return <SupersetCard key={b} block={block} start={start} />
+            return <SupersetCard key={b} block={block} start={start} infos={infos} />
           })}
         </ol>
       )}
@@ -774,7 +870,10 @@ function ExerciseRow({
   bare = false,
   group,
   followsLabel = false,
+  infos,
 }: {
+  // Charge de chaque exercice (affichée en haut à droite de la carte)
+  infos: Record<string, ExerciseLoadInfo>
   // Exercice qui suit un autre dans un superset : un peu d'espace en plus pour l'étiquette « SUPERSET » posée sur le trait
   followsLabel?: boolean
   exercise: SessionExercise
@@ -797,6 +896,10 @@ function ExerciseRow({
             className={`min-w-0 flex-1 basis-40 text-base font-semibold text-gray-900 ${followsLabel ? 'pb-4 pt-5' : 'py-4'}`}
           >
             {position}. {exercise.name}
+            {/* Charge à prévoir, sous le nom */}
+            <span className="mt-1 block text-sm font-bold text-gray-700">
+              {loadLabel(exercise, infos[exercise.exercise_id])}
+            </span>
           </span>
           {group ? (
             <span className={`ml-auto shrink-0 flex flex-col items-center gap-2 ${followsLabel ? 'pb-4 pt-5' : 'py-4'}`}>
@@ -825,7 +928,7 @@ function ExerciseRow({
           </svg>
         </summary>
 
-        <DetailsPanel exercise={exercise} />
+        <DetailsPanel exercise={exercise} info={infos[exercise.exercise_id]} />
       </details>
     </li>
   )
@@ -842,7 +945,15 @@ function repsText(exercise: SessionExercise): string {
 }
 
 // Un superset dans l'aperçu : un seul bloc. Les exercices sont au-dessus, puis séries, répétitions et repos une seule fois.
-function SupersetCard({ block, start }: { block: SessionExercise[]; start: number }) {
+function SupersetCard({
+  block,
+  start,
+  infos,
+}: {
+  block: SessionExercise[]
+  start: number
+  infos: Record<string, ExerciseLoadInfo>
+}) {
   return (
     <li className="glass overflow-hidden rounded-xl border border-l-4 border-l-blue-600 shadow-sm">
       {/* Le premier exercice porte séries × répétitions et repos ; « SUPERSET » est entre les exercices */}
@@ -864,10 +975,19 @@ function SupersetCard({ block, start }: { block: SessionExercise[]; start: numbe
               bare
               group={i === 0 ? block : undefined}
               followsLabel={i > 0}
+              infos={infos}
             />
           </Fragment>
         ))}
       </ol>
     </li>
   )
+}
+
+// Charge à prévoir : « 40 kg », « PDC » (poids du corps) ou « - » quand il n'y en a pas
+function loadLabel(exercise: SessionExercise, info: ExerciseLoadInfo | undefined): string {
+  const bodyweight = exercise.equipment === 'PDC'
+  const kg = info?.weight_kg ?? null
+  if (kg === null || kg <= 0) return bodyweight ? 'PDC' : '-'
+  return formatLoad(kg, bodyweight)
 }

@@ -30,6 +30,13 @@ export function formatLoad(kg: number | null, bodyweight = false): string {
   return `${String(Math.round(kg * 100) / 100).replace('.', ',')} kg`
 }
 
+// Charge utilisée à la dernière séance pour la série n° `setNumber` (à défaut, celle de la dernière série), ou null
+export function lastLoadForSet(info: ExerciseLoadInfo | undefined, setNumber: number): number | null {
+  const sets = info?.lastSets ?? []
+  if (sets.length === 0) return null
+  return (sets.find((s) => s.set_number === setNumber) ?? sets[sets.length - 1]).weight_kg
+}
+
 // Charge actuelle de chaque exercice et nombre de séances de suite à cette charge.
 export async function getExerciseLoads(
   supabase: SupabaseClient,
