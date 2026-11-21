@@ -90,7 +90,7 @@ export default async function WeightPage() {
       </div>
 
       <Card>
-        <WeightForm today={getTodayDate()} />
+        <WeightForm today={getTodayDate()} initialWeight={entries[0]?.weight_kg} />
       </Card>
 
       <section>
@@ -108,7 +108,7 @@ export default async function WeightPage() {
       <details className="group glass overflow-hidden rounded-xl border shadow-sm">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
           <span className="font-display text-2xl font-bold text-gray-900">
-            Historique
+            Historique des pesées
           </span>
           <svg
             viewBox="0 0 24 24"

@@ -93,7 +93,7 @@ export default function WeightScreen() {
         />
       </View>
 
-      <WeightForm onSaved={refresh} />
+      <WeightForm current={entries[0]} onSaved={refresh} />
 
       {errorMessage ? <ErrorBox>{errorMessage}</ErrorBox> : null}
 
@@ -159,7 +159,7 @@ export default function WeightScreen() {
 // Historique des pesées : bandeau déroulant, replié par défaut
 function History({ entries, onDeleted }: { entries: WeightEntry[]; onDeleted: () => void }) {
   return (
-    <Collapsible title="Historique">
+    <Collapsible title="Historique des pesées">
       {entries.length === 0 ? (
         <Text className="px-4 py-3 text-sm text-gray-500 dark:text-zinc-400">Aucune pesée enregistrée pour l&apos;instant.</Text>
       ) : (
@@ -180,10 +180,11 @@ function History({ entries, onDeleted }: { entries: WeightEntry[]; onDeleted: ()
   )
 }
 
-function WeightForm({ onSaved }: { onSaved: () => void }) {
+function WeightForm({ current, onSaved }: { current: WeightEntry | undefined; onSaved: () => void }) {
   const accent = useAccent()
   const [date, setDate] = useState(() => fromIsoDate(getTodayDate()))
-  const [value, setValue] = useState('')
+  // Le champ s'ouvre avec le poids actuel (la pesée la plus récente)
+  const [value, setValue] = useState(current ? String(current.weight_kg) : '')
   const [pending, setPending] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'ok'; text: string } | null>(null)
   const today = fromIsoDate(getTodayDate())
@@ -197,7 +198,6 @@ function WeightForm({ onSaved }: { onSaved: () => void }) {
       setMessage({ type: 'error', text: result.error })
       return
     }
-    setValue('')
     setMessage({ type: 'ok', text: 'Poids enregistré.' })
     onSaved()
   }

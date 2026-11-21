@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input, Label } from '@/components/ui/input'
 import { saveWeightEntry } from './actions'
 
-export default function WeightForm({ today }: { today: string }) {
+export default function WeightForm({ today, initialWeight }: { today: string; initialWeight?: number }) {
   const [pending, startTransition] = useTransition()
   const [date, setDate] = useState(today)
-  const [value, setValue] = useState('')
+  // Le champ s'ouvre avec le poids actuel (la pesée la plus récente)
+  const [value, setValue] = useState(initialWeight === undefined ? '' : String(initialWeight))
   const [message, setMessage] = useState<{ type: 'error' | 'ok'; text: string } | null>(null)
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -21,7 +22,6 @@ export default function WeightForm({ today }: { today: string }) {
         setMessage({ type: 'error', text: result.error })
         return
       }
-      setValue('')
       setMessage({ type: 'ok', text: 'Poids enregistré.' })
     })
   }
