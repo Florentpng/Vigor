@@ -59,7 +59,7 @@ export default function ProfileScreen() {
       </View>
 
       {/* Les badges ont leur propre écran */}
-      <Card onPress={() => router.navigate('/badges')}>
+      <Card onPress={() => router.push('/profile/badges')}>
         <View className="flex-row items-center gap-3">
           <Ionicons name="ribbon-outline" size={26} color={accent} />
           <View className="shrink flex-1">

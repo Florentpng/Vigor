@@ -11,6 +11,7 @@ export const MUSCLE_GROUPS = [
   "FESSIERS",
   "MOLLETS",
   "ABDOMINAUX",
+  "MOBILITE",
 ] as const;
 
 export const EQUIPMENTS = [

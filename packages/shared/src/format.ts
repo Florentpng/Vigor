@@ -64,6 +64,9 @@ const SECONDS_PER_REP = 4
 // Nombre de répétitions retenu pour estimer une série « max »
 const ESTIMATED_MAX_REPS = 12
 
+// Pause entre deux exercices (2 min)
+const TRANSITION_SECONDS = 120
+
 // Durée estimée d'une séance : effort de chaque série + repos entre les tours
 // (comme dans le déroulé de la séance, il n'y a pas de repos après la toute dernière série).
 // Superset : un tour enchaîne tous les exercices du groupe, puis un seul repos (celui du dernier).
@@ -76,5 +79,7 @@ export function estimateWorkoutSeconds(
     return sum + groupSets(group) * (effort + groupRest(group))
   }, 0)
   const lastGroup = groups[groups.length - 1]
-  return lastGroup ? total - groupRest(lastGroup) : 0
+  if (!lastGroup) return 0
+  // Changement d'exercice (ou de superset) : installation du matériel, pas d'enchaînement immédiat
+  return total - groupRest(lastGroup) + (groups.length - 1) * TRANSITION_SECONDS
 }
